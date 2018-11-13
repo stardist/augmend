@@ -49,13 +49,13 @@ def transform_elastic(img, axis=None, grid=4, amount=5, order=1, rng=None):
     
     :param img, ndarray:
         the nD image to deform 
-    :param axis, tuple:
+    :param axis, tuple or callable:
         the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
-    :param grid, int or tuple of ints of same length as axis:
+    :param grid, int, tuple of ints of same length as axis, or callable:
         the number of gridpoints per axis at which random deformation vectors are attached.  
-    :param amount, float or tuple of floats of same length as axis:
+    :param amount, float, tuple of floats of same length as axis, or callable:
         the maximal pixel shift of deformations per axis.
-    :param order, int:
+    :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
     :param rng:
         the random number generator to be used
@@ -76,12 +76,23 @@ def transform_elastic(img, axis=None, grid=4, amount=5, order=1, rng=None):
     """
     img = np.asanyarray(img)
 
+    if callable(axis):
+        axis = axis(img)
+
     axis = flatten_axis(img.ndim, axis)
 
     if np.isscalar(grid):
         grid = (grid,) * len(axis)
+    elif callable(grid):
+        grid = grid(img)
+
     if np.isscalar(amount):
         amount = (amount,) * len(axis)
+    elif callable(amount):
+        amount = amount(img)
+
+    if callable(order):
+        order = order(img)
 
     grid = np.asanyarray(grid)
     amount = np.asanyarray(amount)
