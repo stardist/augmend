@@ -27,7 +27,8 @@ Xs = np.meshgrid(*((np.arange(0, 100),) * 3), indexing="ij")
 R = np.sqrt(np.sum([(X - c) ** 2 for X, c in zip(Xs, (70, 60, 50))], axis=0))
 img[R<20] = 1.4
 
-
+lbl = np.zeros((100,)*3,np.uint16)
+lbl[R<20] = 200
 
 
 # define augmentation pipeline
@@ -38,7 +39,7 @@ aug.add(FlipRotAugmenter(p=1., axis = (1,2)))
 # a simple data generator (might as well return several arrays, as for a supervised data generator) 
 def data_gen():
     for i in range(4):
-        yield img
+        yield img, lbl
 
 g = data_gen()
 
@@ -51,7 +52,7 @@ res = tuple(aug_gen)
 
 
 ```
-Should result in (orginal and 4 augmented volumes, from left to right)
+Should result in the following output. From left to right: orginal and 4 augmented volumes. Top and bottom, image (`img`) and labels (`lbl`). 
 
 ![alt text](imgs/examples.png)
 
