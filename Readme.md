@@ -42,7 +42,7 @@ res = tuple(aug_gen)
 
 
 ```
-Should result in 
+Should result in (orginal and 4 augmented volumes, from left to right)
 
 ![alt text](imgs/examples.png)
 
