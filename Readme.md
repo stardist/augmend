@@ -52,7 +52,7 @@ res = tuple(aug_gen)
 
 
 ```
-Should result in the following output. From left to right: orginal and 4 augmented volumes. Top and bottom, image (`img`) and labels (`lbl`). 
+Should result in the following output. From left to right: original and 4 augmented volumes. Top and bottom, image (`img`) and labels (`lbl`).
 
 ![alt text](imgs/examples.png)
 
