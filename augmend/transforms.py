@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def flatten_axis(ndim, axis=None):
-    """ converts axis to a flatten tuple 
-    e.g. 
+    """ converts axis to a flatten tuple
+    e.g.
     flatten_axis(3, axis = None) = (0,1,2)
     flatten_axis(4, axis = (-2,-1)) = (2,3)
     """
@@ -264,7 +264,7 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
 
 def subgroup_permutations(ndim, axis=None):
     """
-    iterate over the permutation subgroup of given axis 
+    iterate over the permutation subgroup of given axis
     """
     axis = flatten_axis(ndim, axis)
     res = np.arange(ndim)
@@ -276,7 +276,7 @@ def subgroup_permutations(ndim, axis=None):
 
 def subgroup_flips(ndim, axis=None):
     """
-    iterate over the product subgroup (False,True) of given axis 
+    iterate over the product subgroup (False,True) of given axis
     """
     axis = flatten_axis(ndim, axis)
     res = np.zeros(ndim, np.bool)
@@ -289,7 +289,7 @@ def subgroup_flips(ndim, axis=None):
 
 def transform_flip_rot(img, rng=None, axis=None):
     """
-    random augmentation of an array around axis 
+    random augmentation of an array around axis
     """
 
     if rng is None:
@@ -327,7 +327,7 @@ def transform_flip_rot(img, rng=None, axis=None):
 
 class BaseTransform(object):
     """
-    base class for an augmentation action 
+    base class for an augmentation action
     """
 
     def __init__(self, default_kwargs, transform_func):
@@ -359,7 +359,7 @@ class Concatenate(BaseTransform):
 
 class Identity(BaseTransform):
     """
-    Do nothing   
+    Do nothing
     """
 
     def __init__(self):
@@ -376,8 +376,8 @@ class AdditiveNoise(BaseTransform):
 
     def __init__(self, sigma=.1):
         super().__init__(
-            default_kwargs=dict(sigma=sigma),
-            transform_func=lambda x, rng, sigma: x + sigma * rng.normal(0, 1, x.shape)
+            default_kwargs=dict(sigma = sigma),
+            transform_func=lambda x, rng, sigma: x+(sigma(x,rng) if callable(sigma) else sigma)*rng.normal(0,1,x.shape)
         )
 
 
@@ -404,19 +404,19 @@ class CutOut(BaseTransform):
 
 class Elastic(BaseTransform):
     """
-    elastic deformation of an n-dimensional image along the given axis 
+    elastic deformation of an n-dimensional image along the given axis
 
     :param axis, tuple:
         the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
     :param grid, int or tuple of ints of same length as axis:
-        the number of gridpoints per axis at which random deformation vectors are attached.  
+        the number of gridpoints per axis at which random deformation vectors are attached.
     :param amount, float or tuple of floats of same length as axis:
         the maximal pixel shift of deformations per axis.
     :param order, int:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
     :param rng:
         the random number generator to be used
-    :return ndarray: 
+    :return ndarray:
         the deformed img/array
 
     Example:
@@ -439,7 +439,7 @@ class Elastic(BaseTransform):
         :param axis, tuple:
             the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
         :param grid, int or tuple of ints of same length as axis:
-            the number of gridpoints per axis at which random deformation vectors are attached.  
+            the number of gridpoints per axis at which random deformation vectors are attached.
         :param amount, float or tuple of floats of same length as axis:
             the maximal pixel shift of deformations per axis.
         :param order, int:
@@ -458,7 +458,7 @@ class Elastic(BaseTransform):
 
 class FlipRot(BaseTransform):
     """
-    flip and 90 degree rotation augmentation  
+    flip and 90 degree rotation augmentation
     """
 
     def __init__(self, axis=None):
