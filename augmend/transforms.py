@@ -2,6 +2,7 @@ import numpy as np
 from scipy.ndimage.interpolation import zoom, map_coordinates
 import itertools
 from functools import reduce
+from .utils import map_single_func_tree, zip_trees, _wrap_leaf_node
 
 
 def flatten_axis(ndim, axis=None):
@@ -307,6 +308,32 @@ class Concatenate(BaseTransform):
             default_kwargs=dict(),
             transform_func=lambda x,rng: reduce(lambda x, f: f(x, rng), transforms, x)
         )
+
+
+class Choice(BaseTransform):
+    def __init__(self, *transforms, weights=None):
+        # TODO: check weights (length, positive, ?)
+        if weights is None:
+            weights = [1]*len(transforms)
+        assert len(weights)==len(transforms)
+        p = np.asanyarray(weights)
+        p = p / np.sum(p)
+        self.transforms, self.weights = transforms, p
+        super().__init__(
+            default_kwargs=dict(),
+            transform_func=lambda x,rng: transforms[rng.choice(len(transforms),p=p)](x)
+        )
+
+    def __repr__(self):
+        return "%s%s"%(self.__class__.__name__,  self.transforms)
+
+def choice(*transforms, weights=None):
+    """convert several trees of transforms to one tree with Choice nodes of individual transforms
+    """
+    return map_single_func_tree (
+        lambda leaf: Choice(*leaf,weights=weights),
+        zip_trees(*map(_wrap_leaf_node,transforms))
+    )
 
 
 class Identity(BaseTransform):
