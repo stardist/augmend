@@ -16,24 +16,24 @@ def _is_leaf_node(x):
 
 def map_single_func_tree(func, x):
     """
-    applies func to all elements of x recursively 
-    (if the type of element is in iterate_types) such that the results has 
+    applies func to all elements of x recursively
+    (if the type of element is in iterate_types) such that the results has
     the same nested structure as x
-    
+
     Example:
     ========
-    
+
     func = lambda x: 2*x
-    
+
     x = [1, [2, 3, (4,5)]]
     y = map_tree(func, x)
-    
+
     print(x)
     print(y)
-    
-    [1, [2, 3, (4, 5)]]    
+
+    [1, [2, 3, (4, 5)]]
     [2, [4, 6, (8, 10)]]
-    
+
     """
     return func(x) if _is_leaf_node(x) \
         else type(x)(map(partial(map_single_func_tree, func), x))
@@ -41,15 +41,15 @@ def map_single_func_tree(func, x):
 
 def map_trees(func, x):
     """
-    Applies a tree (nested list or tuples) of functions funcs to a 
+    Applies a tree (nested list or tuples) of functions funcs to a
     corresponding tree of items xs.
-    
+
     Example:
     ========
 
     funcs = [ ( lambda x: 2*x, lambda x: 3*x ), lambda x: 4*x ]
     xs = [ (1,2), 3  ]
-    
+
     ys = map_trees(funcs, xs)
 
     print(xs)
@@ -57,7 +57,7 @@ def map_trees(func, x):
 
     >>>[(1, 2), 3]
     >>>[(2, 6), 12]
-    
+
     """
     return func(x) if (_is_leaf_node(x) and _is_leaf_node(func)) \
         else type(x)(map(map_trees, func, x))
@@ -66,21 +66,21 @@ def map_trees(func, x):
 
 def zip_trees(*trees):
     """
-    zip several trees (nested list or tuples)  
-    
+    zip several trees (nested list or tuples)
+
     he leaf noes will be represented by a LeafTuple object (a subclass of tuple),
-     such that it does not get interpreted as an inner node of the resulting tree  
-    
+     such that it does not get interpreted as an inner node of the resulting tree
+
     Example:
     ========
 
     x = ( ('A','B') , 'C' )
     y = ( (1,2) , 3 )
-    
+
     zip_trees(x,y)
-    
+
     >>>((LeafTuple(('A', 1)), LeafTuple(('B', 2))), LeafTuple(('C', 3)))
-    
+
     """
     assert all(len(trees[0]) == l for l in map(len, trees)), "all trees must have same size"
 
