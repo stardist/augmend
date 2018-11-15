@@ -238,7 +238,6 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
         return _from_flat_sub_array(res_flattened, axis, img.shape)
 
     else:
-
         # print(np.sum(rng.get_state()[1]))
         dxs_coarse = list(a * rng.uniform(-1, 1, grid) for a in amount)
 
@@ -248,9 +247,9 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
         for ax in range(img.ndim):
             ss = [slice(None) for i in range(img.ndim)]
             ss[ax] = slice(0, 1)
-            dxs_coarse[ax][ss] *= np.sign(dxs_coarse[ax][ss])
+            dxs_coarse[ax][tuple(ss)] *= np.sign(dxs_coarse[ax][tuple(ss)])
             ss[ax] = slice(-1, None)
-            dxs_coarse[ax][ss] *= -np.sign(dxs_coarse[ax][ss])
+            dxs_coarse[ax][tuple(ss)] *= -np.sign(dxs_coarse[ax][tuple(ss)])
 
         zoom_factor = tuple(s / g if i in axis else 1 for i, (s, g) in enumerate(zip(img.shape, grid)))
 

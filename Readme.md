@@ -2,6 +2,7 @@
 
 Augmentation of n-dimensional arrays.
 
+![](imgs/augmerino.png)
 
 Currently implemented:
 
