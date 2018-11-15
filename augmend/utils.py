@@ -6,16 +6,27 @@ from __future__ import print_function, unicode_literals, absolute_import, divisi
 import numpy as np
 from functools import partial
 
+
 class LeafTuple(tuple):
+    """
+    As we implicitely assume that a tuple or list cannot be a terminal leaf node,
+    we have to add tuples as a different type - as a LeafTuple
+    """
     def __repr__(self):
-        return "%s%s"%(self.__class__.__name__,  super().__repr__())
+        return "%s%s" % (self.__class__.__name__, super().__repr__())
 
 def _is_leaf_node(x):
+    """defines which nodes are considered a terminal leaf node
+    """
     return isinstance(x, LeafTuple) or not isinstance(x, (tuple, list))
 
 def _wrap_leaf_node(x):
     # to enable syntatic sugar: special case of trivial tree, wrap transform in list
     return (x,) if _is_leaf_node(x) else x
+
+def _raise(e):
+    raise e
+
 
 def map_single_func_tree(func, x):
     """
@@ -62,16 +73,19 @@ def map_trees(func, x):
     >>>[(2, 6), 12]
 
     """
-    return func(x) if (_is_leaf_node(x) and _is_leaf_node(func)) \
+    all_leaves = (_is_leaf_node(x) and _is_leaf_node(func))
+
+    (all_leaves or len(func) == len(x)) or _raise("tree structures not compatible %s" % str(x))
+
+    return func(x) if all_leaves \
         else type(x)(map(map_trees, func, x))
 
 
-
-def zip_trees(*trees):
+def zip_trees(*xs):
     """
     zip several trees (nested list or tuples)
 
-    he leaf noes will be represented by a LeafTuple object (a subclass of tuple),
+    the leaf nodes will be represented by a LeafTuple object (a subclass of tuple),
      such that it does not get interpreted as an inner node of the resulting tree
 
     Example:
@@ -85,15 +99,32 @@ def zip_trees(*trees):
     >>>((LeafTuple(('A', 1)), LeafTuple(('B', 2))), LeafTuple(('C', 3)))
 
     """
-    assert all(len(trees[0]) == l for l in map(len, trees)), "all trees must have same size"
+    all(len(xs[0]) == l for l in map(len, xs)) or _raise("tree structures not compatible %s" % str(xs))
 
-    return type(trees[0])(LeafTuple(t) if all(_is_leaf_node(_t) for _t in t) \
-                     else zip_trees(*t) for t in zip(*trees))
+    return type(xs[0])(LeafTuple(t) if all(_is_leaf_node(_t) for _t in t) \
+                           else zip_trees(*t) for t in zip(*xs))
 
 
+def create_pattern(ndim=2, shape=None, dtype=np.float32):
+    if shape is None:
+        shape = (128,) * ndim
 
-# def zip_trees(*trees):
-#     if all(_is_leaf_node(t) for t in trees):
-#         return trees
-#     else:
-#         return tuple(zip_trees(*t) for t in zip(*trees))
+    x = np.zeros(shape, dtype)
+    hs = (np.linspace(min(shape) // 4, 2*max(shape) // 3, len(shape))[::-1]).astype(int)
+    w = min(shape) // 12
+
+    for i, h in enumerate(hs):
+        # ss = list(slice(None) for _ in shape)
+        # ss[i] = slice(0,None,2*w)
+
+        ss = list(slice(w//4, None, 2 * w) for _ in shape)
+        ss[i] = slice(None)
+        x[ss] = 128
+
+    for i, h in enumerate(hs):
+        ss = list(slice(_s//2 - w -_h//2, _s//2 + w-_h//2 ) for _s,_h in zip(shape, hs))
+        ss[i] = slice(shape[i]//2-w -h//2 ,shape[i]//2+h//2)
+        x[ss] = 256
+
+
+    return x

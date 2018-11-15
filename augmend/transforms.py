@@ -2,6 +2,8 @@ import numpy as np
 from scipy.ndimage.interpolation import zoom, map_coordinates
 import itertools
 from functools import reduce
+from concurrent.futures import ThreadPoolExecutor
+import copy
 from .utils import map_single_func_tree, zip_trees, _wrap_leaf_node
 
 
@@ -22,8 +24,8 @@ def flatten_axis(ndim, axis=None):
             axis = [axis, ]
         elif isinstance(axis, tuple):
             axis = list(axis)
-        if max(axis)>max(all_axis):
-            raise ValueError("axis = %s too large"%max(axis))
+        if max(axis) > max(all_axis):
+            raise ValueError("axis = %s too large" % max(axis))
         axis = tuple(list(all_axis[axis]))
     return axis
 
@@ -48,12 +50,116 @@ def _from_flat_sub_array(arr, axis, shape):
     return arr_t
 
 
-def transform_elastic(img, rng=None, axis=None, grid=4, amount=5, order=1):
+#
+# def transform_elastic(img, rng=None, axis=None, grid=4, amount=5, order=1):
+#     """
+#     elastic deformation of an n-dimensional image along the given axis
+#
+#     :param img, ndarray:
+#         the nD image to deform
+#     :param axis, tuple or callable:
+#         the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
+#     :param grid, int, tuple of ints of same length as axis, or callable:
+#         the number of gridpoints per axis at which random deformation vectors are attached.
+#     :param amount, float, tuple of floats of same length as axis, or callable:
+#         the maximal pixel shift of deformations per axis.
+#     :param order, int or callable:
+#         the interpolation order (e.g. set order = 0 for nearest neighbor)
+#     :param rng:
+#         the random number generator to be used
+#     :return ndarray:
+#         the deformed img/array
+#
+#     Example:
+#     ========
+#
+#     img = np.zeros((128,) * 2, np.float32)
+#
+#     img[::16] = 128
+#     img[:,::16] = 128
+#
+#     out = transform_elastic(img, grid=5, amount=5)
+#
+#
+#     """
+#     img = np.asanyarray(img)
+#
+#     if callable(axis):
+#         axis = axis(img)
+#
+#     axis = flatten_axis(img.ndim, axis)
+#
+#     if np.isscalar(grid):
+#         grid = (grid,) * len(axis)
+#     elif callable(grid):
+#         grid = grid(img)
+#
+#     if np.isscalar(amount):
+#         amount = (amount,) * len(axis)
+#     elif callable(amount):
+#         amount = amount(img)
+#
+#     if callable(order):
+#         order = order(img)
+#
+#     grid = np.asanyarray(grid)
+#     amount = np.asanyarray(amount)
+#
+#     if not img.ndim >= len(axis):
+#         raise ValueError("dimension of image (%s) < length of axis (%s)" % (img.ndim, len(axis)))
+#
+#     if not len(axis) == len(grid):
+#         raise ValueError("length of axis (%s) != length of grid (%s)" % (len(axis), len(grid)))
+#
+#     if not len(axis) == len(amount):
+#         raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
+#
+#     if np.amin(grid) < 2:
+#         raise ValueError("grid should be at least 2x2 (but is %s)" % str(grid))
+#
+#     if rng is None:
+#         rng = np.random
+#
+#     grid_full = np.ones(img.ndim, np.int)
+#     grid_full[np.array(axis)] = np.array(grid)
+#
+#     amount_full = np.zeros(img.ndim, np.float32)
+#     amount_full[np.array(axis)] = np.array(amount)
+#
+#     dxs_coarse = list(a * rng.uniform(-1, 1, grid_full) for a in amount_full)
+#
+#     # make sure, the border dxs are pointing inwards, such that
+#     # we dont have out-of-border pixel accesses
+#
+#     for ax in range(img.ndim):
+#         ss = [slice(None) for i in range(img.ndim)]
+#         ss[ax] = slice(0, 1)
+#         dxs_coarse[ax][ss] *= np.sign(dxs_coarse[ax][ss])
+#         ss[ax] = slice(-1, None)
+#         dxs_coarse[ax][ss] *= -np.sign(dxs_coarse[ax][ss])
+#
+#     zoom_factor = tuple(s / g if i in axis else 1 for i, (s, g) in enumerate(zip(img.shape, grid_full)))
+#
+#     dxs = tuple(np.broadcast_to(zoom(dx, zoom_factor, order=1), img.shape) for dx in dxs_coarse)
+#
+#     Xs = np.meshgrid(*tuple(np.arange(s) for s in img.shape), indexing='ij')
+#
+#     indices = tuple(np.reshape(X + dx, (-1, 1)) for X, dx in zip(Xs, dxs))
+#
+#     return map_coordinates(img, indices, order=order).reshape(img.shape)
+
+
+# FIXME: the one below is more flexible, as it allows to apply independent distortions
+# FIXME: along the axis it is not applied to (e.g. batches)
+
+def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, workers=1):
     """
     elastic deformation of an n-dimensional image along the given axis
 
     :param img, ndarray:
         the nD image to deform
+    :param rng:
+        the random number generator to be used
     :param axis, tuple or callable:
         the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
     :param grid, int, tuple of ints of same length as axis, or callable:
@@ -62,8 +168,9 @@ def transform_elastic(img, rng=None, axis=None, grid=4, amount=5, order=1):
         the maximal pixel shift of deformations per axis.
     :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
-    :param rng:
-        the random number generator to be used
+    :param workers, int:
+        if >1 uses multithreading with the given number of workers
+
     :return ndarray:
         the deformed img/array
 
@@ -79,25 +186,15 @@ def transform_elastic(img, rng=None, axis=None, grid=4, amount=5, order=1):
 
 
     """
-    img = np.asanyarray(img)
 
-    if callable(axis):
-        axis = axis(img)
+    img = np.asanyarray(img)
 
     axis = flatten_axis(img.ndim, axis)
 
     if np.isscalar(grid):
         grid = (grid,) * len(axis)
-    elif callable(grid):
-        grid = grid(img)
-
     if np.isscalar(amount):
         amount = (amount,) * len(axis)
-    elif callable(amount):
-        amount = amount(img)
-
-    if callable(order):
-        order = order(img)
 
     grid = np.asanyarray(grid)
     amount = np.asanyarray(amount)
@@ -117,102 +214,53 @@ def transform_elastic(img, rng=None, axis=None, grid=4, amount=5, order=1):
     if rng is None:
         rng = np.random
 
-    grid_full = np.ones(img.ndim, np.int)
-    grid_full[np.array(axis)] = np.array(grid)
+    if len(axis) < img.ndim:
+        # flatten all axis that are not affected
+        img_flattened = _to_flat_sub_array(img, axis)
+        state = rng.get_state()
 
-    amount_full = np.zeros(img.ndim, np.float32)
-    amount_full[np.array(axis)] = np.array(amount)
+        def _func(x, rng):
+            rng.set_state(state)
+            return transform_elastic(x, rng=rng,
+                                     axis=None, grid=grid, amount=amount, order=order,
+                                     workers=1
+                                     )
 
-    dxs_coarse = list(a * rng.uniform(-1, 1, grid_full) for a in amount_full)
+        # copy rng, to be thread-safe
+        rng_flattened = tuple(copy.deepcopy(rng) for _ in img_flattened)
 
-    # make sure, the border dxs are pointing inwards, such that
-    # we dont have out-of-border pixel accesses
+        if workers > 1:
 
-    for ax in range(img.ndim):
-        ss = [slice(None) for i in range(img.ndim)]
-        ss[ax] = slice(0, 1)
-        dxs_coarse[ax][ss] *= np.sign(dxs_coarse[ax][ss])
-        ss[ax] = slice(-1, None)
-        dxs_coarse[ax][ss] *= -np.sign(dxs_coarse[ax][ss])
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                res_flattened = np.stack(executor.map(_func, img_flattened, rng_flattened))
+        else:
+            res_flattened = np.stack(map(_func, img_flattened, rng_flattened))
 
-    zoom_factor = tuple(s / g if i in axis else 1 for i, (s, g) in enumerate(zip(img.shape, grid_full)))
+        return _from_flat_sub_array(res_flattened, axis, img.shape)
 
-    dxs = tuple(np.broadcast_to(zoom(dx, zoom_factor, order=1), img.shape) for dx in dxs_coarse)
+    else:
+        # print(np.sum(rng.get_state()[1]))
+        dxs_coarse = list(a * rng.uniform(-1, 1, grid) for a in amount)
 
-    Xs = np.meshgrid(*tuple(np.arange(s) for s in img.shape), indexing='ij')
+        # make sure, the border dxs are pointing inwards, such that
+        # we dont have out-of-border pixel accesses
 
-    indices = tuple(np.reshape(X + dx, (-1, 1)) for X, dx in zip(Xs, dxs))
+        for ax in range(img.ndim):
+            ss = [slice(None) for i in range(img.ndim)]
+            ss[ax] = slice(0, 1)
+            dxs_coarse[ax][tuple(ss)] *= np.sign(dxs_coarse[ax][tuple(ss)])
+            ss[ax] = slice(-1, None)
+            dxs_coarse[ax][tuple(ss)] *= -np.sign(dxs_coarse[ax][tuple(ss)])
 
-    return map_coordinates(img, indices, order=order).reshape(img.shape)
+        zoom_factor = tuple(s / g if i in axis else 1 for i, (s, g) in enumerate(zip(img.shape, grid)))
 
+        dxs = tuple(zoom(dx, zoom_factor, order=1) for dx in dxs_coarse)
 
-# FIXME: the one below is more flexible, as it allows to apply independent distortions
-# FIXME: along the axis it is not applied to (e.g. batches)
-#
-# def transform_elastic(img, rng=None, axis = None, grid=(5, 5), amount=5, order=1):
-#     img = np.asanyarray(img)
-#
-#     axis = flatten_axis(img.ndim, axis)
-#
-#     if np.isscalar(grid):
-#         grid = (grid,) * len(axis)
-#     if np.isscalar(amount):
-#         amount = (amount,) * len(axis)
-#
-#     grid = np.asanyarray(grid)
-#     amount = np.asanyarray(amount)
-#
-#
-#     if not img.ndim >= len(axis):
-#         raise ValueError("dimension of image (%s) < length of axis (%s)"%(img.ndim,len(axis)))
-#
-#     if not len(axis) == len(grid):
-#         raise ValueError("length of axis (%s) != length of grid (%s)" % (len(axis), len(grid)))
-#
-#     if not len(axis) == len(amount):
-#         raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
-#
-#     if np.amin(grid) < 2:
-#         raise ValueError("grid should be at least 2x2 (but is %s)"%str(grid))
-#
-#     if rng is None:
-#         rng = np.random
-#
-#     if len(axis)<img.ndim:
-#         # flatten all axis that are not affected
-#         img_flattened  = _to_flat_sub_array(img,axis)
-#         state = rng.get_state()
-#         res_flattened = []
-#         for _img in img_flattened:
-#             rng.set_state(state)
-#             res_flattened.append(transform_elastic(_img, rng = rng, axis = None,
-#                                                    grid = grid, amount = amount, order = order,
-#                                                    ))
-#         return _from_flat_sub_array(np.stack(res_flattened),axis,img.shape)
-#
-#     else:
-#         dxs_coarse = list(a * rng.uniform(-1, 1, grid) for a in amount)
-#
-#         # make sure, the border dxs are pointing inwards, such that
-#         # we dont have out-of-border pixel accesses
-#
-#         for ax in range(img.ndim):
-#             ss = [slice(None) for i in range(img.ndim)]
-#             ss[ax] = slice(0, 1)
-#             dxs_coarse[ax][ss] *= np.sign(dxs_coarse[ax][ss])
-#             ss[ax] = slice(-1, None)
-#             dxs_coarse[ax][ss] *= -np.sign(dxs_coarse[ax][ss])
-#
-#         zoom_factor = tuple(s / g if i in axis else 1 for i,(s, g) in enumerate(zip(img.shape, grid)))
-#
-#         dxs = tuple(zoom(dx, zoom_factor, order=1) for dx in dxs_coarse)
-#
-#         Xs = np.meshgrid(*tuple(np.arange(s) for s in img.shape), indexing='ij')
-#
-#         indices = tuple(np.reshape(X + dx, (-1, 1)) for X, dx in zip(Xs, dxs))
-#
-#         return map_coordinates(img, indices, order=order).reshape(img.shape)
-#
+        Xs = np.meshgrid(*tuple(np.arange(s) for s in img.shape), indexing='ij')
+
+        indices = tuple(np.reshape(X + dx, (-1, 1)) for X, dx in zip(Xs, dxs))
+
+        return map_coordinates(img, indices, order=order).reshape(img.shape)
 
 
 def subgroup_permutations(ndim, axis=None):
@@ -287,12 +335,12 @@ class BaseTransform(object):
         self._default_kwargs = default_kwargs
         self._transform_func = transform_func
 
-
     def __call__(self, x, rng=np.random, **kwargs):
         kwargs = {**self._default_kwargs, **kwargs}
         return self._transform_func(x,
                                     rng=rng,
                                     **kwargs)
+
     def __add__(self, other):
         return Concatenate([self, other])
 
@@ -322,7 +370,7 @@ class Concatenate(BaseTransform):
         self.transforms = tuple(transforms)
         super().__init__(
             default_kwargs=dict(),
-            transform_func=lambda x,rng: reduce(lambda x, f: f(x, rng), transforms, x)
+            transform_func=lambda x, rng: reduce(lambda x, f: f(x, rng), transforms, x)
         )
     def __repr__(self):
         return "%s%s"%(self.__class__.__name__,  self.transforms)
@@ -371,33 +419,34 @@ class AdditiveNoise(BaseTransform):
     """
     Add gaussian noise
     """
-    def __init__(self, sigma = .1):
-        super().__init__(
-            default_kwargs=dict(sigma = sigma),
-            transform_func=lambda x, rng, sigma: x+(sigma(x,rng) if callable(sigma) else sigma)*rng.normal(0,1,x.shape)
-        )
 
+    def __init__(self, sigma=.1):
+        super().__init__(
+            default_kwargs=dict(sigma=sigma),
+            transform_func=lambda x, rng, sigma: x + (sigma(x, rng) if callable(sigma) else sigma) * rng.normal(0, 1,
+                                                                                                                x.shape)
+        )
 
 
 class CutOut(BaseTransform):
     """
     Cut parts of the image
     """
-    def __init__(self, width= 16):
+
+    def __init__(self, width=16):
         super().__init__(
-            default_kwargs=dict(width = width),
+            default_kwargs=dict(width=width),
             transform_func=self._cutout)
 
-    def _cutout(self, x, rng, width = 16):
+    def _cutout(self, x, rng, width=16):
         if np.isscalar(width):
-            width = (width,)*x.ndim
-        assert all(tuple(w<=s for w,s in zip(width,x.shape)))
-        x0 = tuple(rng.randint(0,s-w-1) for w,s in zip(width,x.shape))
-        ss = tuple(slice(_x0,_x0+w) for w,_x0 in zip(width,x0))
+            width = (width,) * x.ndim
+        assert all(tuple(w <= s for w, s in zip(width, x.shape)))
+        x0 = tuple(rng.randint(0, s - w - 1) for w, s in zip(width, x.shape))
+        ss = tuple(slice(_x0, _x0 + w) for w, _x0 in zip(width, x0))
         y = x.copy()
         y[ss] = 0
         return y
-
 
 
 class Elastic(BaseTransform):
