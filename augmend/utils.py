@@ -8,11 +8,14 @@ from functools import partial
 
 class LeafTuple(tuple):
     def __repr__(self):
-        return "%s(%s)"%(self.__class__.__name__,  super().__repr__())
+        return "%s%s"%(self.__class__.__name__,  super().__repr__())
 
 def _is_leaf_node(x):
     return isinstance(x, LeafTuple) or not isinstance(x, (tuple, list))
 
+def _wrap_leaf_node(x):
+    # to enable syntatic sugar: special case of trivial tree, wrap transform in list
+    return (x,) if _is_leaf_node(x) else x
 
 def map_single_func_tree(func, x):
     """
