@@ -5,7 +5,7 @@ mweigert@mpi-cbg.de
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
 from functools import reduce
-from .utils import map_single_func_tree, zip_trees
+from .utils import map_single_func_tree, zip_trees, _is_leaf_node
 
 
 class Augmend(object):
@@ -38,6 +38,9 @@ class Augmend(object):
         :param probability, float:
             the probability which which to activate the augmentation (0<= p<= 1)
         """
+        # syntatic sugar: special case of trivial tree, wrap transform in list
+        if _is_leaf_node(transform):
+            transform = (transform,)
         self._transforms.append((transform, probability))
 
     def __call__(self, x):
@@ -52,7 +55,11 @@ class Augmend(object):
                     self._rng.set_state(rand_state)
                     return _trans(_x, rng=self._rng)
 
-                x = map_single_func_tree(_apply, zip_trees(trans, x))
+                if callable(trans):
+                    # TODO: pass rng to callable trans? especially if callable is another Augment object?
+                    x = trans(x)
+                else:
+                    x = map_single_func_tree(_apply, zip_trees(trans, x))
         return x
 
 
