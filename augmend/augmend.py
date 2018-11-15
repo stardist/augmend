@@ -11,16 +11,16 @@ from .utils import map_single_func_tree, zip_trees
 class Augmend(object):
     """
     Main augmentation pipeline object
-     
+
     Example:
     ========
-    
-    
+
+
     """
 
     def __init__(self, rng=None):
         """
-        :param rng, random_number_generator: 
+        :param rng, random_number_generator:
         """
         if rng is None:
             rng = np.random
@@ -34,9 +34,9 @@ class Augmend(object):
     def add(self, transform, probability=1.):
         """
         :param transform:
-            The transformation object to be applied 
+            The transformation object to be applied
         :param probability, float:
-            the probability which which to activate the augmentation (0<= p<= 1) 
+            the probability which which to activate the augmentation (0<= p<= 1)
         """
         self._transforms.append((transform, probability))
 
