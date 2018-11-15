@@ -17,7 +17,7 @@ Currently implemented:
 ```python
 
 import numpy as np
-from augmend.augmend import Augmend, ElasticAugmenter, FlipRotAugmenter
+from augmend import Augmend, ElasticAugmenter, FlipRotAugmenter
 
 # example 3d image and label
 img = np.zeros((100,) * 3, np.float32)

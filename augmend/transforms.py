@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.ndimage.interpolation import zoom, map_coordinates
 import itertools
+from functools import reduce
 
 
 def flatten_axis(ndim, axis=None):
@@ -12,6 +13,7 @@ def flatten_axis(ndim, axis=None):
 
     # allow for e.g. axis = -1, axis = None, ...
     all_axis = np.arange(ndim)
+
     if axis is None:
         axis = tuple(all_axis)
     else:
@@ -19,6 +21,8 @@ def flatten_axis(ndim, axis=None):
             axis = [axis, ]
         elif isinstance(axis, tuple):
             axis = list(axis)
+        if max(axis)>max(all_axis):
+            raise ValueError("axis = %s too large"%max(axis))
         axis = tuple(list(all_axis[axis]))
     return axis
 
@@ -43,7 +47,7 @@ def _from_flat_sub_array(arr, axis, shape):
     return arr_t
 
 
-def transform_elastic(img, axis=None, grid=4, amount=5, order=1, rng=None):
+def transform_elastic(img, rng=None, axis=None, grid=4, amount=5, order=1):
     """
     elastic deformation of an n-dimensional image along the given axis 
     
@@ -141,8 +145,10 @@ def transform_elastic(img, axis=None, grid=4, amount=5, order=1, rng=None):
     return map_coordinates(img, indices, order=order).reshape(img.shape)
 
 
+# FIXME: the one below is more flexible, as it allows to apply independent distortions
+# FIXME: along the axis it is not applied to (e.g. batches)
 #
-# def transform_elastic(img, axis = None, grid=(5, 5), amount=5, order=1, random_generator  =None):
+# def transform_elastic(img, rng=None, axis = None, grid=(5, 5), amount=5, order=1):
 #     img = np.asanyarray(img)
 #
 #     axis = flatten_axis(img.ndim, axis)
@@ -168,23 +174,23 @@ def transform_elastic(img, axis=None, grid=4, amount=5, order=1, rng=None):
 #     if np.amin(grid) < 2:
 #         raise ValueError("grid should be at least 2x2 (but is %s)"%str(grid))
 #
-#     if random_generator is None:
-#         random_generator = np.random
+#     if rng is None:
+#         rng = np.random
 #
 #     if len(axis)<img.ndim:
 #         # flatten all axis that are not affected
 #         img_flattened  = _to_flat_sub_array(img,axis)
-#         state = random_generator.get_state()
+#         state = rng.get_state()
 #         res_flattened = []
 #         for _img in img_flattened:
-#             random_generator.set_state(state)
-#             res_flattened.append(transform_elastic(_img, axis = None,
+#             rng.set_state(state)
+#             res_flattened.append(transform_elastic(_img, rng = rng, axis = None,
 #                                                    grid = grid, amount = amount, order = order,
-#                                                    random_generator = random_generator))
+#                                                    ))
 #         return _from_flat_sub_array(np.stack(res_flattened),axis,img.shape)
 #
 #     else:
-#         dxs_coarse = list(a * random_generator.uniform(-1, 1, grid) for a in amount)
+#         dxs_coarse = list(a * rng.uniform(-1, 1, grid) for a in amount)
 #
 #         # make sure, the border dxs are pointing inwards, such that
 #         # we dont have out-of-border pixel accesses
@@ -233,13 +239,13 @@ def subgroup_flips(ndim, axis=None):
         yield tuple(res)
 
 
-def transform_flip_rot(img, axis=None, random_generator=None):
+def transform_flip_rot(img, rng=None, axis=None):
     """
     random augmentation of an array around axis 
     """
 
-    if random_generator is None:
-        random_generator = np.random
+    if rng is None:
+        rng = np.random
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = flatten_axis(img.ndim, axis)
@@ -251,8 +257,8 @@ def transform_flip_rot(img, axis=None, random_generator=None):
     flips = tuple(subgroup_flips(img.ndim, axis))
 
     # random permutation and flip
-    rand_perm_ind = random_generator.randint(len(perms))
-    rand_flip_ind = random_generator.randint(len(flips))
+    rand_perm_ind = rng.randint(len(perms))
+    rand_flip_ind = rng.randint(len(flips))
 
     rand_perm = perms[rand_perm_ind]
     rand_flip = flips[rand_flip_ind]
@@ -265,3 +271,154 @@ def transform_flip_rot(img, axis=None, random_generator=None):
         if f:
             augmented = np.flip(augmented, axis)
     return augmented
+
+
+############################################################################
+
+
+
+class BaseTransform(object):
+    """
+    base class for an augmentation action 
+    """
+
+    def __init__(self, default_kwargs, transform_func):
+        self._default_kwargs = default_kwargs
+        self._transform_func = transform_func
+
+
+    def __call__(self, x, rng=np.random, **kwargs):
+        kwargs = {**self._default_kwargs, **kwargs}
+        return self._transform_func(x,
+                                    rng=rng,
+                                    **kwargs)
+    def __add__(self, other):
+        return Concatenate([self, other])
+
+    def __repr__(self):
+        return self.__class__.__name__
+        # kwargs_str = '\n'.join(" = ".join(map(str, item)) for item in self._default_kwargs.items())
+        # return "%s\n\ndefault arguments:\n%s" % (self.__class__.__name__, kwargs_str)
+
+
+class Concatenate(BaseTransform):
+    def __init__(self, transforms):
+        super().__init__(
+            default_kwargs=dict(),
+            transform_func=lambda x,rng: reduce(lambda x, f: f(x, rng), transforms, x)
+        )
+
+
+class Identity(BaseTransform):
+    """
+    Do nothing   
+    """
+
+    def __init__(self):
+        super().__init__(
+            default_kwargs=dict(),
+            transform_func=lambda x, rng: x
+        )
+
+
+class AdditiveNoise(BaseTransform):
+    """
+    Add gaussian noise
+    """
+    def __init__(self, sigma = .1):
+        super().__init__(
+            default_kwargs=dict(sigma = sigma),
+            transform_func=lambda x, rng, sigma: x+sigma*rng.normal(0,1,x.shape)
+        )
+
+
+
+class CutOut(BaseTransform):
+    """
+    Cut parts of the image
+    """
+    def __init__(self, width= 16):
+        super().__init__(
+            default_kwargs=dict(width = width),
+            transform_func=self._cutout)
+
+    def _cutout(self, x, rng, width = 16):
+        if np.isscalar(width):
+            width = (width,)*x.ndim
+        assert all(tuple(w<=s for w,s in zip(width,x.shape)))
+        x0 = tuple(rng.randint(0,s-w-1) for w,s in zip(width,x.shape))
+        ss = tuple(slice(_x0,_x0+w) for w,_x0 in zip(width,x0))
+        y = x.copy()
+        y[ss] = 0
+        return y
+
+
+
+class Elastic(BaseTransform):
+    """
+    elastic deformation of an n-dimensional image along the given axis 
+
+    :param axis, tuple:
+        the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
+    :param grid, int or tuple of ints of same length as axis:
+        the number of gridpoints per axis at which random deformation vectors are attached.  
+    :param amount, float or tuple of floats of same length as axis:
+        the maximal pixel shift of deformations per axis.
+    :param order, int:
+        the interpolation order (e.g. set order = 0 for nearest neighbor)
+    :param rng:
+        the random number generator to be used
+    :return ndarray: 
+        the deformed img/array
+
+    Example:
+    ========
+
+    img = np.zeros((128,) * 2, np.float32)
+
+    img[::16] = 128
+    img[:,::16] = 128
+
+    aug_elastic = ElasticAugmentor(grid=5, amount=5)
+
+    out = aug_elastic(img)
+
+    """
+
+    def __init__(self, axis=None, grid=5, amount=5, order=1):
+        """
+
+        :param axis, tuple:
+            the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
+        :param grid, int or tuple of ints of same length as axis:
+            the number of gridpoints per axis at which random deformation vectors are attached.  
+        :param amount, float or tuple of floats of same length as axis:
+            the maximal pixel shift of deformations per axis.
+        :param order, int:
+            the interpolation order (e.g. set order = 0 for nearest neighbor)
+        """
+
+        super().__init__(
+            default_kwargs=dict(
+                grid=grid,
+                axis=axis,
+                amount=amount,
+                order=order),
+            transform_func=transform_elastic
+        )
+
+
+class FlipRot(BaseTransform):
+    """
+    flip and 90 degree rotation augmentation  
+    """
+
+    def __init__(self, axis=None):
+        """
+        :param axis, tuple:
+            the axis along which to flip and rotate
+        """
+        super().__init__(
+            default_kwargs=dict(axis=axis),
+            transform_func=transform_flip_rot
+        )

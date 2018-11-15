@@ -4,7 +4,7 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from augmend.augmend import Augmend, ElasticAugmenter, FlipRotAugmenter
+from augmend import Augmend, Elastic, FlipRot
 
 if __name__ == '__main__':
     img = np.zeros((100,) * 3, np.float32)
@@ -27,11 +27,11 @@ if __name__ == '__main__':
 
 
     aug = Augmend()
-    aug.add(ElasticAugmenter(p=1., axis=(0, 1, 2),
-                             amount=5,
-                             order=lambda x: 0 if x.dtype.type == np.uint16 else 1))
+    aug.add(Elastic(p=1., axis=(0, 1, 2),
+                    amount=5,
+                    order=lambda x: 0 if x.dtype.type == np.uint16 else 1))
 
-    aug.add(FlipRotAugmenter(p=1., axis = (1,2)))
+    aug.add(FlipRot(p=1., axis = (1, 2)))
 
     aug_gen = aug(g)
 
