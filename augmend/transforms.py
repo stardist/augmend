@@ -3,6 +3,7 @@ from scipy.ndimage.interpolation import zoom, map_coordinates
 import itertools
 from functools import reduce
 from concurrent.futures import ThreadPoolExecutor
+import copy
 
 
 def flatten_axis(ndim, axis=None):
@@ -217,30 +218,30 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
         img_flattened = _to_flat_sub_array(img, axis)
         state = rng.get_state()
 
-
-        def _func(x):
-            # copy rng, to be thread-safe
-            rng = np.random.RandomState()
+        def _func(x, rng):
             rng.set_state(state)
             return transform_elastic(x, rng=rng,
                                      axis=None, grid=grid, amount=amount, order=order,
-                                     workers = 1
+                                     workers=1
                                      )
 
-        if workers>1:
+        # copy rng, to be thread-safe
+        rng_flattened = tuple(copy.deepcopy(rng) for _ in img_flattened)
+
+        if workers > 1:
+
             with ThreadPoolExecutor(max_workers=workers) as executor:
-                res_flattened = np.stack(executor.map(_func, img_flattened))
+                res_flattened = np.stack(executor.map(_func, img_flattened, rng_flattened))
         else:
-            res_flattened = np.stack(map(_func, img_flattened))
+            res_flattened = np.stack(map(_func, img_flattened, rng_flattened))
 
         return _from_flat_sub_array(res_flattened, axis, img.shape)
 
     else:
 
-        #print(np.sum(rng.get_state()[1]))
+        # print(np.sum(rng.get_state()[1]))
         dxs_coarse = list(a * rng.uniform(-1, 1, grid) for a in amount)
 
-        #print(dxs_coarse[0][0])
         # make sure, the border dxs are pointing inwards, such that
         # we dont have out-of-border pixel accesses
 
@@ -376,8 +377,9 @@ class AdditiveNoise(BaseTransform):
 
     def __init__(self, sigma=.1):
         super().__init__(
-            default_kwargs=dict(sigma = sigma),
-            transform_func=lambda x, rng, sigma: x+(sigma(x,rng) if callable(sigma) else sigma)*rng.normal(0,1,x.shape)
+            default_kwargs=dict(sigma=sigma),
+            transform_func=lambda x, rng, sigma: x + (sigma(x, rng) if callable(sigma) else sigma) * rng.normal(0, 1,
+                                                                                                                x.shape)
         )
 
 
