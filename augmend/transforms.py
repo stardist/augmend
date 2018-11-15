@@ -296,6 +296,21 @@ class BaseTransform(object):
     def __add__(self, other):
         return Concatenate([self, other])
 
+    # TODO: when chaining more than two things together, how do divvy up probabilities?
+    def __or__(self, other):
+        # TODO: warning if weights not uniform for any of the (potential) Choice transforms self or other
+        # print(self, other)
+        trans_self  = list(self.transforms)  if isinstance(self,Choice)  else [self]
+        trans_other = list(other.transforms) if isinstance(other,Choice) else [other]
+        return Choice(*(trans_self+trans_other))
+        # return Choice(self, other)
+    # def __div__(self, other):
+    #     return self.__or__(other)
+    # def __truediv__(self, other):
+    #     return self.__or__(other)
+    # def __floordiv__(self, other):
+    #     return self.__or__(other)
+
     def __repr__(self):
         return self.__class__.__name__
         # kwargs_str = '\n'.join(" = ".join(map(str, item)) for item in self._default_kwargs.items())
@@ -304,10 +319,13 @@ class BaseTransform(object):
 
 class Concatenate(BaseTransform):
     def __init__(self, transforms):
+        self.transforms = tuple(transforms)
         super().__init__(
             default_kwargs=dict(),
             transform_func=lambda x,rng: reduce(lambda x, f: f(x, rng), transforms, x)
         )
+    def __repr__(self):
+        return "%s%s"%(self.__class__.__name__,  self.transforms)
 
 
 class Choice(BaseTransform):
@@ -326,6 +344,7 @@ class Choice(BaseTransform):
 
     def __repr__(self):
         return "%s%s"%(self.__class__.__name__,  self.transforms)
+        # return "%s%s, w=%s"%(self.__class__.__name__,  self.transforms, self.weights)
 
 def choice(*transforms, weights=None):
     """convert several trees of transforms to one tree with Choice nodes of individual transforms
