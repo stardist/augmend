@@ -52,6 +52,10 @@ class Augmend(object):
 
         for trans, prob in self._transforms:
             if self._rng.uniform(0, 1) <= prob:
+
+                if isinstance(trans,Branch):
+                    trans = trans(rng=self._rng)
+
                 rand_state = self._rng.get_state()
 
                 def _apply(leaf):
@@ -71,3 +75,32 @@ class Augmend(object):
         """apply augmentation chain to an iterator of arrays/batches
         """
         return map(self, iterable)
+
+
+# TODO: basically same functionality as Choice transform, needs refactoring/rethinking
+class Branch(object):
+    def __init__(self, *transforms, weights=None):
+        # don't wrap generic functions
+        self.transforms = tuple(map(
+            lambda t: _wrap_leaf_node(t) if isinstance(t,BaseTransform) else t,
+            transforms
+        ))
+        if weights is None:
+            weights = [1]*len(transforms)
+        assert len(weights)==len(transforms)
+        weights = np.asanyarray(weights)
+        weights = weights / np.sum(weights)
+        self.weights = weights
+
+    def __call__(self, rng=np.random):
+        return self.transforms[rng.choice(len(self.transforms),p=self.weights)]
+
+    # def __len__(self):
+    #     return len(self.transforms)
+
+    # def __getitem__(self, *args):
+    #     return self.transforms.__getitem__(*args)
+
+    def __repr__(self):
+        return "%s%s"%(self.__class__.__name__,  self.transforms)
+        # return "%s%s, w=%s"%(self.__class__.__name__,  self.transforms, self.weights)
