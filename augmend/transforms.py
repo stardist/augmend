@@ -4,7 +4,7 @@ import itertools
 from functools import reduce
 from concurrent.futures import ThreadPoolExecutor
 import copy
-from .utils import map_single_func_tree, zip_trees, _wrap_leaf_node
+from .utils import _raise, map_single_func_tree, zip_trees, _wrap_leaf_node, _all_of_type
 
 
 def flatten_axis(ndim, axis=None):
@@ -323,6 +323,26 @@ def transform_flip_rot(img, rng=None, axis=None):
 
 
 ############################################################################
+
+
+
+class TransformTree(object):
+    def __init__(self, tree):
+        if isinstance(tree,BaseTransform):
+            tree = _wrap_leaf_node(tree)
+        _all_of_type(tree,BaseTransform) or _raise(ValueError("not a tree of transforms"))
+        self.tree = tree
+
+    def __call__(self, x, rng=np.random):
+        rand_state = rng.get_state()
+        def _apply(leaf):
+            trans, _x = leaf
+            rng.set_state(rand_state)
+            return trans(_x, rng=rng)
+        return map_single_func_tree(_apply, zip_trees(self.tree, x))
+
+    def __repr__(self):
+        return "%s(%s)"%(self.__class__.__name__, str(self.tree))
 
 
 

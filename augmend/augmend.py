@@ -4,21 +4,10 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from functools import reduce
-from .utils import map_single_func_tree, zip_trees, _is_leaf_node, _wrap_leaf_node
-from .transforms import BaseTransform
+from .utils import _raise, _is_leaf_node, _wrap_leaf_node
+from .transforms import TransformTree
 
-
-class Augmend(object):
-    """
-    Main augmentation pipeline object
-
-    Example:
-    ========
-
-
-    """
-
+class BaseAugmend(object):
     def __init__(self, *transforms, rng=None):
         """
         :param rng, random_number_generator:
@@ -31,21 +20,70 @@ class Augmend(object):
         for t in transforms:
             self.add(t)
 
+    def add(self, transform):
+        """
+        :param transform:
+            The transformation object to be applied
+        """
+        try:
+            transform = TransformTree(transform)
+        except ValueError:
+            callable(transform) or _raise(ValueError("transform needs to be callable with signature (data, rng)"))
+        self._transforms.append(transform)
+
+    def __call__(self, x, rng=None):
+        # TODO: do this properly
+        raise NotImplementedError()
+
+    def __repr__(self):
+        return "%s%s"%(self.__class__.__name__,  self._transforms)
+        # return "%s%s, w=%s"%(self.__class__.__name__,  self.transforms, self.weights)
+
+    def __len__(self):
+        return len(self._transforms)
+
+    # def __getitem__(self, *args):
+    #     return self._transforms.__getitem__(*args)
+
+
+
+class Augmend(BaseAugmend):
+    """
+    Main augmentation pipeline object
+
+    Example:
+    ========
+
+
+    """
+
+    def __init__(self, *transforms, probabilities=None, rng=None):
+        """
+        :param rng, random_number_generator:
+        """
+        super().__init__(rng=rng)
+        self._probabilities = []
+        if probabilities is None:
+            probabilities = [1]*len(transforms)
+        len(probabilities)==len(transforms) or _raise(ValueError())
+        for t,p in zip(transforms,probabilities):
+            self.add(t,p)
+
     def __repr__(self):
         return "\n".join(
-            map(lambda t: "\n-------------\nprob = %s\n%s\n-------------\n " % (t[1], t[0]), self._transforms))
+            map(lambda t: "%d (p=%.1f): %s" % (1+t[0], t[1], t[2]),
+                zip(range(len(self)), self._probabilities, self._transforms)))
 
-    def add(self, transform, probability=1.):
+    def add(self, transform, probability=1.0):
         """
         :param transform:
             The transformation object to be applied
         :param probability, float:
             the probability which which to activate the augmentation (0<= p<= 1)
         """
-        # don't wrap generic functions
-        if isinstance(transform,BaseTransform):
-            transform = _wrap_leaf_node(transform)
-        self._transforms.append((transform, probability))
+        0 <= probability <= 1 or _raise(ValueError())
+        super().add(transform)
+        self._probabilities.append(probability)
 
     def __call__(self, x, rng=None):
         """apply augmentation chain to arrays/images
@@ -56,23 +94,10 @@ class Augmend(object):
         wrapped = _is_leaf_node(x)
         x = _wrap_leaf_node(x)
 
-        for trans, prob in self._transforms:
-            if self._rng.uniform(0, 1) <= prob:
+        for trans, prob in zip(self._transforms, self._probabilities):
+            if self._rng.uniform(0,1) <= prob:
+                x = trans(x, rng=self._rng)
 
-                # sample which transformation to execute
-                if isinstance(trans,Branch):
-                    trans = trans(rng=self._rng)
-
-                rand_state = self._rng.get_state()
-                def _apply(leaf):
-                    _trans, _x = leaf
-                    self._rng.set_state(rand_state)
-                    return _trans(_x, rng=self._rng)
-
-                if callable(trans):
-                    x = trans(x, rng=self._rng)
-                else:
-                    x = map_single_func_tree(_apply, zip_trees(trans, x))
         return x[0] if wrapped else x
 
 
@@ -83,29 +108,21 @@ class Augmend(object):
 
 
 # TODO: basically same functionality as Choice transform, needs refactoring/rethinking
-class Branch(object):
+class Branch(BaseAugmend):
     def __init__(self, *transforms, weights=None):
-        # don't wrap generic functions
-        self.transforms = tuple(map(
-            lambda t: _wrap_leaf_node(t) if isinstance(t,BaseTransform) else t,
-            transforms
-        ))
+
+        super().__init__(*transforms)
+
         if weights is None:
             weights = [1]*len(transforms)
         assert len(weights)==len(transforms)
         weights = np.asanyarray(weights)
+        weights = np.maximum(0,weights)
         weights = weights / np.sum(weights)
-        self.weights = weights
+        self._weights = weights
 
-    def __call__(self, rng=np.random):
-        return self.transforms[rng.choice(len(self.transforms),p=self.weights)]
-
-    # def __len__(self):
-    #     return len(self.transforms)
-
-    # def __getitem__(self, *args):
-    #     return self.transforms.__getitem__(*args)
-
-    def __repr__(self):
-        return "%s%s"%(self.__class__.__name__,  self.transforms)
-        # return "%s%s, w=%s"%(self.__class__.__name__,  self.transforms, self.weights)
+    def __call__(self, x, rng=None):
+        if rng is not None:
+            self._rng = rng
+        trans = self._transforms[self._rng.choice(len(self),p=self._weights)]
+        return trans(x, rng=self._rng)

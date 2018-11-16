@@ -28,6 +28,17 @@ def _raise(e):
     raise e
 
 
+def _all_of_type(iterable, t):
+    for it in iterable:
+        if not isinstance(it,t):
+            try:
+                if not _all_of_type(it,t):
+                    return False
+            except TypeError:
+                return False
+    return True
+
+
 def map_single_func_tree(func, x):
     """
     applies func to all elements of x recursively
@@ -75,7 +86,7 @@ def map_trees(func, x):
     """
     all_leaves = (_is_leaf_node(x) and _is_leaf_node(func))
 
-    (all_leaves or len(func) == len(x)) or _raise("tree structures not compatible %s" % str(x))
+    (all_leaves or len(func) == len(x)) or _raise(ValueError("tree structures not compatible %s" % str(x)))
 
     return func(x) if all_leaves \
         else type(x)(map(map_trees, func, x))
@@ -99,7 +110,7 @@ def zip_trees(*xs):
     >>>((LeafTuple(('A', 1)), LeafTuple(('B', 2))), LeafTuple(('C', 3)))
 
     """
-    all(len(xs[0]) == l for l in map(len, xs)) or _raise("tree structures not compatible %s" % str(xs))
+    all(len(xs[0]) == l for l in map(len, xs)) or _raise(ValueError("tree structures not compatible %s" % str(xs)))
 
     return type(xs[0])(LeafTuple(t) if all(_is_leaf_node(_t) for _t in t) \
                            else zip_trees(*t) for t in zip(*xs))
