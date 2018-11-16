@@ -44,28 +44,30 @@ class Augmend(object):
             transform = _wrap_leaf_node(transform)
         self._transforms.append((transform, probability))
 
-    def __call__(self, x):
+    def __call__(self, x, rng=None):
         """apply augmentation chain to arrays/images
         """
+        if rng is not None:
+            self._rng = rng
+
         wrapped = _is_leaf_node(x)
         x = _wrap_leaf_node(x)
 
         for trans, prob in self._transforms:
             if self._rng.uniform(0, 1) <= prob:
 
+                # sample which transformation to execute
                 if isinstance(trans,Branch):
                     trans = trans(rng=self._rng)
 
                 rand_state = self._rng.get_state()
-
                 def _apply(leaf):
                     _trans, _x = leaf
                     self._rng.set_state(rand_state)
                     return _trans(_x, rng=self._rng)
 
                 if callable(trans):
-                    # TODO: pass rng to callable trans? especially if callable is another Augment object?
-                    x = trans(x)
+                    x = trans(x, rng=self._rng)
                 else:
                     x = map_single_func_tree(_apply, zip_trees(trans, x))
         return x[0] if wrapped else x
