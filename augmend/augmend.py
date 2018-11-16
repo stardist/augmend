@@ -19,7 +19,7 @@ class Augmend(object):
 
     """
 
-    def __init__(self, rng=None):
+    def __init__(self, *transforms, rng=None):
         """
         :param rng, random_number_generator:
         """
@@ -27,6 +27,9 @@ class Augmend(object):
             rng = np.random
         self._rng = rng
         self._transforms = []
+
+        for t in transforms:
+            self.add(t)
 
     def __repr__(self):
         return "\n".join(
