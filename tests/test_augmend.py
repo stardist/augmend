@@ -4,7 +4,7 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from augmend import Augmend, Elastic, FlipRot, Identity, AdditiveNoise, CutOut
+from augmend import Augmend, Elastic, Identity, FlipRot90, AdditiveNoise, CutOut
 
 if __name__ == '__main__':
     X = np.zeros((100,) * 2, np.float32)
@@ -20,8 +20,8 @@ if __name__ == '__main__':
     Z[30:40, 40:90] = 20
 
     aug = Augmend()
-    aug.add([FlipRot() + Elastic(),
-             FlipRot() + Elastic(order=0),
+    aug.add([FlipRot90() + Elastic(),
+             FlipRot90() + Elastic(order=0),
              Identity()])
 
     aug.add([AdditiveNoise(sigma=20) + CutOut(width=20),

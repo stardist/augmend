@@ -1,36 +1,32 @@
 import numpy as np
-from scipy.misc import ascent
-from augmend.transforms import transform_elastic
-from time import time
+from augmend.transforms import Elastic
+from augmend.utils import test_pattern, plot_augmented
+
+from augmend.transforms.elastic import transform_elastic
+import time
 
 if __name__ == '__main__':
-    img = ascent()
+    img = test_pattern(ndim=2, shape = (128,128,128))
 
-    img = np.zeros((128,) * 3, np.uint16)
-    img = np.zeros((16, 128, 128, 128), np.uint16)
+    t  = time.time()
+    out = transform_elastic(img,
+                            use_gpu=True,
+                            #use_gpu=False,
+                            order=0,
+                            amount = 2, grid = 5, rng = np.random.RandomState(0))
+    out = out[out.shape[0]//2]
+    print("%.2f ms" % (1000*(time.time() - t)))
 
-    # img[::16] = 128
-    # img[:,::16] = 128
-    img[10:-10, 40:-40, 40:-40] = 128
-    # img = np.ones((128,77))
-    # img[::10] = 2
-    # img[:,::10] = 3
+
+    import matplotlib.pyplot as plt
+    plt.figure(num=1)
+    plt.imshow(out)
+    plt.show()
 
 
-    t = time()
-    workers = 1
-    out1 = transform_elastic(img, axis=(1, 2, 3), grid=4, amount=5, order=0,
-                             rng=np.random.RandomState(0),
-                             workers=workers)
-
-    print("workers = %s:\t%.4f s" % (workers, time() - t))
-
-    t = time()
-    workers = 16
-    out2 = transform_elastic(img, axis=(1, 2, 3), grid=4, amount=5, order=0,
-                             rng=np.random.RandomState(0),
-                             workers=workers)
-
-    print("workers = %s:\t%.4f s" % (workers, time() - t))
-
-    assert np.allclose(out1, out2)
+    #
+    # t = Elastic(axis=(0,1), grid=4, amount=5, order=0)
+    #
+    # fig = plot_augmented(t,(img,img>80, img), num=1, rng = np.random.RandomState(0))
+    #
+    # fig.show()

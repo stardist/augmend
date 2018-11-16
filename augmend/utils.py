@@ -4,6 +4,7 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
+import itertools
 from functools import partial
 
 def _get_global_rng():
@@ -128,7 +129,56 @@ def zip_trees(*xs):
                            else zip_trees(*t) for t in zip(*xs))
 
 
-def create_pattern(ndim=2, shape=None, dtype=np.float32):
+def flatten_tree(x):
+    if _is_leaf_node(x):
+        return (x,)
+    else:
+        return tuple(itertools.chain.from_iterable((_x,) if _is_leaf_node(_x) else flatten_tree(_x) for _x in x))
+
+def _flatten_axis(ndim, axis=None):
+    """ converts axis to a flatten tuple
+    e.g.
+    flatten_axis(3, axis = None) = (0,1,2)
+    flatten_axis(4, axis = (-2,-1)) = (2,3)
+    """
+
+    # allow for e.g. axis = -1, axis = None, ...
+    all_axis = np.arange(ndim)
+
+    if axis is None:
+        axis = tuple(all_axis)
+    else:
+        if np.isscalar(axis):
+            axis = [axis, ]
+        elif isinstance(axis, tuple):
+            axis = list(axis)
+        if max(axis) > max(all_axis):
+            raise ValueError("axis = %s too large" % max(axis))
+        axis = tuple(list(all_axis[axis]))
+    return axis
+
+
+def _to_flat_sub_array(arr, axis):
+    axis = _flatten_axis(arr.ndim, axis)
+    flat_axis = tuple(i for i in range(arr.ndim) if i not in axis)
+    permute_axis = flat_axis + axis
+    flat_shape = (-1,) + tuple(s for i, s in enumerate(arr.shape) if i in axis)
+    arr_t = arr.transpose(permute_axis).reshape(flat_shape)
+    return arr_t
+
+
+def _from_flat_sub_array(arr, axis, shape):
+    axis = _flatten_axis(len(shape), axis)
+    flat_axis = tuple(i for i in range(len(shape)) if i not in axis)
+    permute_axis = flat_axis + axis
+    inv_permute_axis = tuple(permute_axis.index(i) for i in range(len(shape)))
+    permute_shape = tuple(shape[p] for p in permute_axis)
+    arr_t = arr.reshape(permute_shape)
+    arr_t = arr_t.transpose(inv_permute_axis)
+    return arr_t
+
+
+def test_pattern(ndim=2, shape=None, dtype=np.float32):
     if shape is None:
         shape = (128,) * ndim
 
@@ -151,3 +201,28 @@ def create_pattern(ndim=2, shape=None, dtype=np.float32):
 
 
     return x
+
+
+
+
+def plot_augmented(transform, x, n = 4, rng = None, num=None, **kwargs):
+    import matplotlib.pyplot as plt
+    xs = flatten_tree(x)
+    nx = len(xs)
+    ys = tuple((x,) + tuple(transform(x, rng=rng) for _ in range(n)) for x in xs)
+    titles = ("original",) + tuple("Augment_%s"%i for i in range(n))
+    fig = plt.figure(num=num, figsize=(2+1*n,2+1*nx))
+    fig.subplots_adjust(wspace = 0.05, hspace = 0.05, left = .05, top = 0.95, bottom = 0.05, right = 0.95)
+    fig.clf()
+    axs = fig.subplots(nx,n+1)
+    if nx==1:
+        axs = (axs,)
+
+    for i,(axx, y) in enumerate(zip(axs,ys)):
+        for ax,_y, t in zip(axx, y,titles):
+            ax.imshow(_y, **kwargs)
+            ax.axis('off')
+            if i==0:
+                ax.set_title(t, fontsize = 8)
+
+    return fig
