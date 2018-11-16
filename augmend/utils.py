@@ -6,6 +6,10 @@ from __future__ import print_function, unicode_literals, absolute_import, divisi
 import numpy as np
 from functools import partial
 
+def _get_global_rng():
+    rng = np.random.RandomState()
+    rng.set_state(np.random.get_state())
+    return rng
 
 class LeafTuple(tuple):
     """

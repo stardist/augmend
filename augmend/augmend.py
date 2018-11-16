@@ -4,7 +4,7 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from .utils import _raise, _is_leaf_node, _wrap_leaf_node, _normalized_weights
+from .utils import _raise, _is_leaf_node, _wrap_leaf_node, _normalized_weights, _get_global_rng
 from .transforms import TransformTree
 
 class BaseAugmend(object):
@@ -12,8 +12,8 @@ class BaseAugmend(object):
         """
         :param rng, random_number_generator:
         """
-        if rng is None:
-            rng = np.random
+        if rng is None or rng is np.random:
+            rng = _get_global_rng()
         self._rng = rng
         self._transforms = []
 

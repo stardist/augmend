@@ -3,8 +3,8 @@ from scipy.ndimage.interpolation import zoom, map_coordinates
 import itertools
 from functools import reduce
 from concurrent.futures import ThreadPoolExecutor
-import copy
-from .utils import _raise, map_single_func_tree, zip_trees, _wrap_leaf_node, _all_of_type, _normalized_weights
+from copy import deepcopy
+from .utils import _raise, map_single_func_tree, zip_trees, _wrap_leaf_node, _all_of_type, _normalized_weights, _get_global_rng
 
 
 def flatten_axis(ndim, axis=None):
@@ -117,8 +117,8 @@ def _from_flat_sub_array(arr, axis, shape):
 #     if np.amin(grid) < 2:
 #         raise ValueError("grid should be at least 2x2 (but is %s)" % str(grid))
 #
-#     if rng is None:
-#         rng = np.random
+#     if rng is None or rng is np.random:
+#         rng = _get_global_rng()
 #
 #     grid_full = np.ones(img.ndim, np.int)
 #     grid_full[np.array(axis)] = np.array(grid)
@@ -211,8 +211,8 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
     if np.amin(grid) < 2:
         raise ValueError("grid should be at least 2x2 (but is %s)" % str(grid))
 
-    if rng is None:
-        rng = np.random
+    if rng is None or rng is np.random:
+        rng = _get_global_rng()
 
     if len(axis) < img.ndim:
         # flatten all axis that are not affected
@@ -227,7 +227,7 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
                                      )
 
         # copy rng, to be thread-safe
-        rng_flattened = tuple(copy.deepcopy(rng) for _ in img_flattened)
+        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
 
         if workers > 1:
 
@@ -293,8 +293,8 @@ def transform_flip_rot(img, rng=None, axis=None):
     random augmentation of an array around axis
     """
 
-    if rng is None:
-        rng = np.random
+    if rng is None or rng is np.random:
+        rng = _get_global_rng()
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = flatten_axis(img.ndim, axis)
