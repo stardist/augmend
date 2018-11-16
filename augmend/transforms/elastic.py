@@ -211,7 +211,7 @@ class Elastic(BaseTransform):
 
     """
 
-    def __init__(self, axis=None, grid=5, amount=5, order=1):
+    def __init__(self, axis=None, grid=5, amount=5, order=1, workers = 0, use_gpu = False):
         """
 
         :param axis, tuple:
@@ -229,6 +229,8 @@ class Elastic(BaseTransform):
                 grid=grid,
                 axis=axis,
                 amount=amount,
+                workers = workers,
+                use_gpu = use_gpu,
                 order=order),
             transform_func=transform_elastic
         )

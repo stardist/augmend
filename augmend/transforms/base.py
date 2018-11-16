@@ -35,7 +35,7 @@ class BaseTransform(object):
         self._default_kwargs = default_kwargs
         self._transform_func = transform_func
 
-    def __call__(self, x, rng=np.random, **kwargs):
+    def __call__(self, x, rng=None, **kwargs):
         kwargs = {**self._default_kwargs, **kwargs}
         return self._transform_func(x,
                                     rng=rng,

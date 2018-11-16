@@ -2,18 +2,19 @@ import numpy as np
 from augmend.transforms import Elastic
 from augmend.utils import test_pattern, plot_augmented
 
-from augmend.transforms.elastic import transform_elastic
+from augmend import Elastic
 import time
 
 if __name__ == '__main__':
     img = test_pattern(ndim=2, shape = (128,128,128))
 
     t  = time.time()
-    out = transform_elastic(img,
-                            use_gpu=True,
-                            #use_gpu=False,
-                            order=0,
-                            amount = 2, grid = 5, rng = np.random.RandomState(0))
+    trans = Elastic(use_gpu=True,
+                    # use_gpu=False,
+                     order=0,
+                     amount = 2, grid = 5)
+
+    out = trans(img, rng = np.random.RandomState(0))
     out = out[out.shape[0]//2]
     print("%.2f ms" % (1000*(time.time() - t)))
 
