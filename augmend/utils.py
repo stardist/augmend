@@ -8,9 +8,7 @@ import itertools
 from functools import partial
 
 def _get_global_rng():
-    rng = np.random.RandomState()
-    rng.set_state(np.random.get_state())
-    return rng
+    return np.random.random.__self__
 
 class LeafTuple(tuple):
     """
