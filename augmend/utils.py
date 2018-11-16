@@ -29,14 +29,22 @@ def _raise(e):
 
 
 def _all_of_type(iterable, t):
-    for it in iterable:
-        if not isinstance(it,t):
-            try:
-                if not _all_of_type(it,t):
-                    return False
-            except TypeError:
+    try:
+        for it in iterable:
+            if not isinstance(it,t) and not _all_of_type(it,t):
                 return False
-    return True
+        return True
+    except TypeError:
+        return False
+
+
+def _normalized_weights(weights,n):
+    if weights is None:
+        weights = [1] * n
+    len(weights) == n or _raise(ValueError("must be %d weights" % n))
+    all(w>=0 for w in weights) or _raise(ValueError("all weights must be positive"))
+    weights = np.asanyarray(weights)
+    return weights / np.sum(weights)
 
 
 def map_single_func_tree(func, x):

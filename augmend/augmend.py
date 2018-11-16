@@ -4,7 +4,7 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from .utils import _raise, _is_leaf_node, _wrap_leaf_node
+from .utils import _raise, _is_leaf_node, _wrap_leaf_node, _normalized_weights
 from .transforms import TransformTree
 
 class BaseAugmend(object):
@@ -47,6 +47,7 @@ class BaseAugmend(object):
 
 
 
+# TODO: rename to "Pipeline"?
 class Augmend(BaseAugmend):
     """
     Main augmentation pipeline object
@@ -71,7 +72,7 @@ class Augmend(BaseAugmend):
 
     def __repr__(self):
         return "\n".join(
-            map(lambda t: "%d (p=%.1f): %s" % (1+t[0], t[1], t[2]),
+            map(lambda t: "%d (p=%.2f): %s" % (1+t[0], t[1], t[2]),
                 zip(range(len(self)), self._probabilities, self._transforms)))
 
     def add(self, transform, probability=1.0):
@@ -98,7 +99,7 @@ class Augmend(BaseAugmend):
             if self._rng.uniform(0,1) <= prob:
                 x = trans(x, rng=self._rng)
 
-        return x[0] if wrapped else x
+        return x[0] if (wrapped and len(x)==1 and _is_leaf_node(x[0])) else x
 
 
     def flow(self, iterable):
@@ -107,19 +108,11 @@ class Augmend(BaseAugmend):
         return map(self, iterable)
 
 
-# TODO: basically same functionality as Choice transform, needs refactoring/rethinking
-class Branch(BaseAugmend):
+
+class Choice(BaseAugmend):
     def __init__(self, *transforms, weights=None):
-
         super().__init__(*transforms)
-
-        if weights is None:
-            weights = [1]*len(transforms)
-        assert len(weights)==len(transforms)
-        weights = np.asanyarray(weights)
-        weights = np.maximum(0,weights)
-        weights = weights / np.sum(weights)
-        self._weights = weights
+        self._weights = _normalized_weights(weights,len(transforms))
 
     def __call__(self, x, rng=None):
         if rng is not None:

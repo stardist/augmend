@@ -4,7 +4,7 @@ import itertools
 from functools import reduce
 from concurrent.futures import ThreadPoolExecutor
 import copy
-from .utils import _raise, map_single_func_tree, zip_trees, _wrap_leaf_node, _all_of_type
+from .utils import _raise, map_single_func_tree, zip_trees, _wrap_leaf_node, _all_of_type, _normalized_weights
 
 
 def flatten_axis(ndim, axis=None):
@@ -329,7 +329,7 @@ def transform_flip_rot(img, rng=None, axis=None):
 class TransformTree(object):
     def __init__(self, tree):
         if isinstance(tree,BaseTransform):
-            tree = _wrap_leaf_node(tree)
+            tree = (tree,)
         _all_of_type(tree,BaseTransform) or _raise(ValueError("not a tree of transforms"))
         self.tree = tree
 
@@ -342,7 +342,8 @@ class TransformTree(object):
         return map_single_func_tree(_apply, zip_trees(self.tree, x))
 
     def __repr__(self):
-        return "%s(%s)"%(self.__class__.__name__, str(self.tree))
+        # return "%s(%s)"%(self.__class__.__name__, str(self.tree))
+        return "%s"%(str(self.tree[0] if len(self.tree)==1 else self.tree))
 
 
 
@@ -362,22 +363,15 @@ class BaseTransform(object):
                                     **kwargs)
 
     def __add__(self, other):
-        return Concatenate([self, other])
+        return ConcatenateTransforms([self, other])
 
     # TODO: when chaining more than two things together, how do divvy up probabilities?
     def __or__(self, other):
         # TODO: warning if weights not uniform for any of the (potential) Choice transforms self or other
         # print(self, other)
-        trans_self  = list(self.transforms)  if isinstance(self,Choice)  else [self]
-        trans_other = list(other.transforms) if isinstance(other,Choice) else [other]
-        return Choice(*(trans_self+trans_other))
-        # return Choice(self, other)
-    # def __div__(self, other):
-    #     return self.__or__(other)
-    # def __truediv__(self, other):
-    #     return self.__or__(other)
-    # def __floordiv__(self, other):
-    #     return self.__or__(other)
+        trans_self  = list(self.transforms)  if isinstance(self,ChoiceTransforms)  else [self]
+        trans_other = list(other.transforms) if isinstance(other,ChoiceTransforms) else [other]
+        return ChoiceTransforms(trans_self + trans_other)
 
     def __repr__(self):
         return self.__class__.__name__
@@ -385,42 +379,31 @@ class BaseTransform(object):
         # return "%s\n\ndefault arguments:\n%s" % (self.__class__.__name__, kwargs_str)
 
 
-class Concatenate(BaseTransform):
+class ConcatenateTransforms(BaseTransform):
     def __init__(self, transforms):
         self.transforms = tuple(transforms)
         super().__init__(
             default_kwargs=dict(),
-            transform_func=lambda x, rng: reduce(lambda x, f: f(x, rng), transforms, x)
+            transform_func=lambda x, rng: reduce(lambda x, f: f(x, rng), self.transforms, x)
         )
     def __repr__(self):
         return "%s%s"%(self.__class__.__name__,  self.transforms)
 
 
-class Choice(BaseTransform):
-    def __init__(self, *transforms, weights=None):
-        # TODO: check weights (length, positive, ?)
-        if weights is None:
-            weights = [1]*len(transforms)
-        assert len(weights)==len(transforms)
-        p = np.asanyarray(weights)
-        p = p / np.sum(p)
-        self.transforms, self.weights = transforms, p
+class ChoiceTransforms(BaseTransform):
+    def __init__(self, transforms, weights=None):
+        self.transforms = tuple(transforms)
+        self.weights = _normalized_weights(weights,len(transforms))
         super().__init__(
             default_kwargs=dict(),
-            transform_func=lambda x,rng: transforms[rng.choice(len(transforms),p=p)](x)
+            transform_func=(
+                lambda x,rng: self.transforms[rng.choice(len(self.transforms),p=self.weights)](x, rng)
+            )
         )
 
     def __repr__(self):
         return "%s%s"%(self.__class__.__name__,  self.transforms)
         # return "%s%s, w=%s"%(self.__class__.__name__,  self.transforms, self.weights)
-
-def choice(*transforms, weights=None):
-    """convert several trees of transforms to one tree with Choice nodes of individual transforms
-    """
-    return map_single_func_tree (
-        lambda leaf: Choice(*leaf,weights=weights),
-        zip_trees(*map(_wrap_leaf_node,transforms))
-    )
 
 
 class Identity(BaseTransform):
