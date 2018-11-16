@@ -363,15 +363,15 @@ class BaseTransform(object):
                                     **kwargs)
 
     def __add__(self, other):
-        return ConcatenateTransforms([self, other])
+        return ConcatenateTransform([self, other])
 
     # TODO: when chaining more than two things together, how do divvy up probabilities?
     def __or__(self, other):
         # TODO: warning if weights not uniform for any of the (potential) Choice transforms self or other
         # print(self, other)
-        trans_self  = list(self.transforms)  if isinstance(self,ChoiceTransforms)  else [self]
-        trans_other = list(other.transforms) if isinstance(other,ChoiceTransforms) else [other]
-        return ChoiceTransforms(trans_self + trans_other)
+        trans_self  = list(self.transforms)  if isinstance(self,ChoiceTransform)  else [self]
+        trans_other = list(other.transforms) if isinstance(other,ChoiceTransform) else [other]
+        return ChoiceTransform(trans_self + trans_other)
 
     def __repr__(self):
         return self.__class__.__name__
@@ -379,7 +379,7 @@ class BaseTransform(object):
         # return "%s\n\ndefault arguments:\n%s" % (self.__class__.__name__, kwargs_str)
 
 
-class ConcatenateTransforms(BaseTransform):
+class ConcatenateTransform(BaseTransform):
     def __init__(self, transforms):
         self.transforms = tuple(transforms)
         super().__init__(
@@ -390,7 +390,7 @@ class ConcatenateTransforms(BaseTransform):
         return "%s%s"%(self.__class__.__name__,  self.transforms)
 
 
-class ChoiceTransforms(BaseTransform):
+class ChoiceTransform(BaseTransform):
     def __init__(self, transforms, weights=None):
         self.transforms = tuple(transforms)
         self.weights = _normalized_weights(weights,len(transforms))

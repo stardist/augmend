@@ -1,2 +1,2 @@
 from .augmend import Augmend, Choice
-from .transforms import Elastic, FlipRot, Identity, AdditiveNoise, ConcatenateTransforms, CutOut
+from .transforms import Elastic, FlipRot, Identity, AdditiveNoise, CutOut
