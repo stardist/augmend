@@ -1,7 +1,5 @@
 import numpy as np
-from augmend.transforms import Elastic
 from augmend.utils import test_pattern, plot_augmented
-
 from augmend import Elastic
 import time
 
