@@ -4,9 +4,14 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
+from six import add_metaclass
+from abc import ABCMeta, abstractmethod
+
 from .utils import _raise, _is_leaf_node, _wrap_leaf_node, _normalized_weights, _get_global_rng
 from .transforms import TransformTree
 
+
+@add_metaclass(ABCMeta)
 class BaseAugmend(object):
     def __init__(self, *transforms, rng=None):
         """
@@ -31,9 +36,20 @@ class BaseAugmend(object):
             callable(transform) or _raise(ValueError("transform needs to be callable with signature (data, rng)"))
         self._transforms.append(transform)
 
+    @abstractmethod
+    def _call(self, x):
+        pass
+
     def __call__(self, x, rng=None):
-        # TODO: do this properly
-        raise NotImplementedError()
+        if rng is not None:
+            self._rng = rng
+        # wrap
+        wrapped = _is_leaf_node(x)
+        x = _wrap_leaf_node(x)
+        # actual computation
+        x = self._call(x)
+        # unwrap
+        return x[0] if (wrapped and len(x)==1 and _is_leaf_node(x[0])) else x
 
     def __repr__(self):
         return "%s%s"%(self.__class__.__name__,  self._transforms)
@@ -82,24 +98,17 @@ class Augmend(BaseAugmend):
         :param probability, float:
             the probability which which to activate the augmentation (0<= p<= 1)
         """
-        0 <= probability <= 1 or _raise(ValueError())
+        (np.isscalar(probability) and 0 <= probability <= 1) or _raise(ValueError())
         super().add(transform)
         self._probabilities.append(probability)
 
-    def __call__(self, x, rng=None):
+    def _call(self, x):
         """apply augmentation chain to arrays/images
         """
-        if rng is not None:
-            self._rng = rng
-
-        wrapped = _is_leaf_node(x)
-        x = _wrap_leaf_node(x)
-
         for trans, prob in zip(self._transforms, self._probabilities):
             if self._rng.uniform(0,1) <= prob:
                 x = trans(x, rng=self._rng)
-
-        return x[0] if (wrapped and len(x)==1 and _is_leaf_node(x[0])) else x
+        return x
 
 
     def flow(self, iterable):
@@ -114,8 +123,6 @@ class Choice(BaseAugmend):
         super().__init__(*transforms)
         self._weights = _normalized_weights(weights,len(transforms))
 
-    def __call__(self, x, rng=None):
-        if rng is not None:
-            self._rng = rng
+    def _call(self, x):
         trans = self._transforms[self._rng.choice(len(self),p=self._weights)]
         return trans(x, rng=self._rng)
