@@ -10,7 +10,7 @@ with open(path.join(_dir,'augmend','version.py')) as f:
 setup(
     name='augmend',
     version=__version__,
-    description='StarDist',
+    description='Augmend',
     license='BSD 3-Clause License',
     packages=find_packages(),
     python_requires='>=3.5'
