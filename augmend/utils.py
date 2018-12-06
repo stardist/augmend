@@ -192,12 +192,12 @@ def test_pattern(ndim=2, shape=None, dtype=np.float32):
 
         ss = list(slice(w//4, None, 2 * w) for _ in shape)
         ss[i] = slice(None)
-        x[ss] = 128
+        x[tuple(ss)] = 128
 
     for i, h in enumerate(hs):
         ss = list(slice(_s//2 - w -_h//2, _s//2 + w-_h//2 ) for _s,_h in zip(shape, hs))
         ss[i] = slice(shape[i]//2-w -h//2 ,shape[i]//2+h//2)
-        x[ss] = 256
+        x[tuple(ss)] = 256
 
 
     return x

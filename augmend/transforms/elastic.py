@@ -39,7 +39,7 @@ def _zoom_and_transform_gpu(img, dxs_coarse, order):
     assert img.ndim in (2, 3)
     assert order in (0, 1)
     from gputools import OCLProgram, OCLImage, OCLArray
-    print("using gpu...")
+    #print("using gpu...")
 
     order_defines = {0: ["-D", "SAMPLERFILTER=CLK_FILTER_NEAREST"],
                      1: ["-D", "SAMPLERFILTER=CLK_FILTER_LINEAR"]}
