@@ -30,25 +30,31 @@ if __name__ == '__main__':
 
     ns = 2**np.arange(3,args.number+1)
 
-    t1 = np.array(tuple(bench((n,)*3,use_gpu=False, niter=2) for n in ns))
+    t1 = np.array(tuple(bench((n,)*3,use_gpu=False, niter=1) for n in ns))
     t2 = np.array(tuple(bench((n,) * 3, use_gpu=True) for n in ns))
 
 
     import thesis
     import matplotlib
     import matplotlib.pyplot as plt
+    plt.ion()
     thesis.setup(usetex = False)
-    fig = thesis.figure(.5, num=1)
+    fig = thesis.figure(.8, num=1)
     fig.clf()
     ax = fig.add_axes((0.2,.2,0.7,.7))
-    ax.plot(ns,1000*t1, label = "CPU")
-    ax.plot(ns, 1000*t2, label="GPU")
+    # ax.plot(ns,1000*t1, label = "CPU")
+    # ax.plot(ns, 1000*t2, label="GPU")
+    # ax.set_ylabel("time (ms)")
+    ax.plot(ns,1./t1, label = "CPU (single thread)")
+    ax.plot(ns, 1./t2, label="GPU (Titan X)")
+    ax.set_ylabel("throughput (volumes/s)")
+    
     ax.set_xscale("log", basex=2)
     ax.set_yscale("log")
     ax.set_xticks(ns)
-    ax.set_xlabel("cube size (px)")
-    ax.set_ylabel("time (ms)")
+    ax.set_xlabel("cube side (px)")
     ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-
+    plt.title("Elastic deformation of cube volumes (float32)")
+    plt.grid()
     plt.legend()
     plt.show()

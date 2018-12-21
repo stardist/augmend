@@ -64,6 +64,36 @@ def transform_flip_rot90(img, rng=None, axis=None):
     return augmented
 
 
+
+def transform_flip(img, rng=None, axis=None):
+    """
+    random augmentation of an array around axis
+    """
+
+    if rng is None or rng is np.random:
+        rng = _get_global_rng()
+
+    # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
+    axis = _flatten_axis(img.ndim, axis)
+
+    # list of all permutations
+    perms = tuple(subgroup_permutations(img.ndim, axis))
+
+    # list of all flips
+    flips = tuple(subgroup_flips(img.ndim, axis))
+
+    # random flip
+    rand_flip_ind = rng.randint(len(flips))
+
+    rand_flip = flips[rand_flip_ind]
+
+    # random flip
+    for axis, f in enumerate(rand_flip):
+        if f:
+            img = np.flip(img, axis)
+    return img
+
+
 def random_rotation_matrix(ndim=2, rng=np.random):
     """
     adapted from pg 11 of 
@@ -85,7 +115,7 @@ def random_rotation_matrix(ndim=2, rng=np.random):
 
 def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1):
     """
-    random roation around axis
+    random rotation around axis
     """
 
     if rng is None:
@@ -122,3 +152,37 @@ class FlipRot90(BaseTransform):
             default_kwargs=dict(axis=axis),
             transform_func=transform_flip_rot90
         )
+
+class Flip(BaseTransform):
+    """
+    flip and 90 degree rotation augmentation
+    """
+
+    def __init__(self, axis=None):
+        """
+        :param axis, tuple:
+            the axis along which to flip and rotate
+        """
+        super().__init__(
+            default_kwargs=dict(axis=axis),
+            transform_func=transform_flip
+        )
+        
+
+class Rotate(BaseTransform):
+    """
+    flip and 90 degree rotation augmentation
+    """
+
+    def __init__(self, axis=None):
+        """
+        :param axis, tuple:
+            the axis along which to flip and rotate
+        """
+        super().__init__(
+            default_kwargs=dict(
+                axis=axis
+            ),
+            transform_func=transform_rotation
+        )
+        
