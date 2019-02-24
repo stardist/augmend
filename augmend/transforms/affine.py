@@ -1,9 +1,11 @@
 import numpy as np
 from scipy import ndimage
 import itertools
+from copy import deepcopy
 from .base import BaseTransform
 from ..utils import _raise, _get_global_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array
-
+from gputools import scale as zoom_gputools
+from gputools.utils import pad_to_shape
 
 def subgroup_permutations(ndim, axis=None):
     """
@@ -137,6 +139,89 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
 
 
 
+def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=False):
+    """
+    scale tranformation 
+    :param img, ndarray:
+        the nD image to deform
+    :param rng:
+        the random number generator to be used
+    :param axis, tuple or callable:
+        the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
+    :param factors, float, tuple of floats of same length as axis, or callable:
+        the maximal scales per axis.
+    :param order, int or callable:
+        the interpolation order (e.g. set order = 0 for nearest neighbor)
+    :return ndarray:
+        the deformed img/array
+
+    Example:
+    ========
+
+    img = np.zeros((128,) * 2, np.float32)
+
+    img[::16] = 128
+    img[:,::16] = 128
+
+    out = transform_scale(img, axis = 1, amounts=(1,2))
+
+
+    """
+
+    img = np.asanyarray(img)
+
+    axis = _flatten_axis(img.ndim, axis)
+
+    if np.isscalar(factors):
+        factors = (factors,factors) * len(axis)
+    
+    if np.isscalar(factors[0]):
+        factors = (factors,) * len(axis)
+
+    factors = np.asanyarray(factors)
+
+    if not img.ndim >= len(axis):
+        raise ValueError("dimension of image (%s) < length of axis (%s)" % (img.ndim, len(axis)))
+
+    if not len(axis) == len(factors):
+        raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(factors)))
+
+    if rng is None or rng is np.random:
+        rng = _get_global_rng()
+
+    if len(axis) < img.ndim:
+        # flatten all axis that are not affected
+        img_flattened = _to_flat_sub_array(img, axis)
+        state = rng.get_state()
+
+        def _func(x, rng):
+            rng.set_state(state)
+            return transform_scale(x, rng=rng,
+                                     axis=None, factors = factors, order=order, use_gpu = use_gpu)
+
+        # copy rng, to be thread-safe
+        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
+
+        res_flattened = np.stack(map(_func, img_flattened, rng_flattened))
+
+        return _from_flat_sub_array(res_flattened, axis, img.shape)
+
+    else:
+        
+        scale = tuple(rng.uniform(lower, upper) for lower, upper in factors)
+        
+        if use_gpu and img.ndim==3:
+            print("scaling by %s via gputools"%str(scale))
+            inter = {
+                0: "nearest",
+                1:"linear"}
+            res = zoom_gputools(img, scale, interpolation= inter[order])
+            res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
+        else:
+            print("scaling by %s via scipy"%str(scale))
+            res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
+        return res
+
 
 class FlipRot90(BaseTransform):
     """
@@ -184,5 +269,27 @@ class Rotate(BaseTransform):
                 axis=axis
             ),
             transform_func=transform_rotation
+        )
+        
+
+        
+class Scale(BaseTransform):
+    """
+    scale augmentation
+    """
+
+    def __init__(self, axis=None, factors=2, order=1, use_gpu =False):
+        """
+        :param axis, tuple:
+            the axis along which to flip and rotate
+        """
+        super().__init__(
+            default_kwargs=dict(
+                axis=axis,
+                factors = factors,
+                order=order,
+                use_gpu  = use_gpu
+            ),
+            transform_func=transform_scale
         )
         
