@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import ndimage
+import warnings
 import itertools
 from copy import deepcopy
 from .base import BaseTransform
@@ -98,10 +99,10 @@ def transform_flip(img, rng=None, axis=None):
 
 def random_rotation_matrix(ndim=2, rng=np.random):
     """
-    adapted from pg 11 of 
+    adapted from pg 11 of
 
-    Mezzadri, Francesco. 
-    "How to generate random matrices from the classical compact groups." 
+    Mezzadri, Francesco.
+    "How to generate random matrices from the classical compact groups."
     arXiv preprint math-ph/0609050 (2006).
 
     """
@@ -141,7 +142,7 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
 
 def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=False):
     """
-    scale tranformation 
+    scale tranformation
     :param img, ndarray:
         the nD image to deform
     :param rng:
@@ -174,7 +175,7 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
 
     if np.isscalar(factors):
         factors = (factors,factors) * len(axis)
-    
+
     if np.isscalar(factors[0]):
         factors = (factors,) * len(axis)
 
@@ -207,19 +208,21 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
         return _from_flat_sub_array(res_flattened, axis, img.shape)
 
     else:
-        
+
         scale = tuple(rng.uniform(lower, upper) for lower, upper in factors)
-        
+
         if use_gpu and img.ndim==3:
-            print("scaling by %s via gputools"%str(scale))
+            # print("scaling by %s via gputools"%str(scale))
             inter = {
                 0: "nearest",
                 1:"linear"}
             res = zoom_gputools(img, scale, interpolation= inter[order])
             res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
         else:
-            print("scaling by %s via scipy"%str(scale))
-            res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
+            # print("scaling by %s via scipy"%str(scale))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
         return res
 
 
@@ -252,7 +255,7 @@ class Flip(BaseTransform):
             default_kwargs=dict(axis=axis),
             transform_func=transform_flip
         )
-        
+
 
 class Rotate(BaseTransform):
     """
@@ -270,9 +273,9 @@ class Rotate(BaseTransform):
             ),
             transform_func=transform_rotation
         )
-        
 
-        
+
+
 class Scale(BaseTransform):
     """
     scale augmentation
@@ -292,4 +295,4 @@ class Scale(BaseTransform):
             ),
             transform_func=transform_scale
         )
-        
+
