@@ -4,11 +4,11 @@ import warnings
 import itertools
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from gputools import scale as zoom_gputools
-from gputools.utils import pad_to_shape
+
+
 
 from .base import BaseTransform
-from ..utils import _raise, _get_global_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array
+from ..utils import _raise, _get_global_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array, pad_to_shape
 
 def subgroup_permutations(ndim, axis=None):
     """
@@ -196,6 +196,8 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
 
 
     """
+    if use_gpu:
+        from gputools import scale as zoom_gputools
 
     img = np.asanyarray(img)
 
