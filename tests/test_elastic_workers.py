@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.misc import ascent
-from augmend.transforms import transform_elastic
+from augmend.transforms.elastic import transform_elastic
 from time import time
 
 if __name__ == '__main__':

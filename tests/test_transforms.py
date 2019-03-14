@@ -5,7 +5,7 @@ mweigert@mpi-cbg.de
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
 
-from augmend import FlipRot, Elastic, Concatenate, Identity
+from augmend import FlipRot90, Elastic, Identity
 
 if __name__ == '__main__':
     x = np.zeros((100, 111), np.float32)
@@ -14,9 +14,9 @@ if __name__ == '__main__':
 
 
     transforms = (
-        FlipRot(axis=0),
-        FlipRot(axis=1),
-        FlipRot(axis=0) + Identity(),
+        FlipRot90(axis=0),
+        FlipRot90(axis=1),
+        FlipRot90(axis=0) + Identity(),
     )
 
     import matplotlib.pyplot as plt

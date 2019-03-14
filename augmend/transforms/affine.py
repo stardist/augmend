@@ -1,7 +1,9 @@
 import numpy as np
 from scipy import ndimage
 import itertools
+from concurrent.futures import ThreadPoolExecutor
 from .base import BaseTransform
+from copy import deepcopy
 from ..utils import _raise, _get_global_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array
 
 
@@ -94,7 +96,7 @@ def transform_flip(img, rng=None, axis=None):
     return img
 
 
-def random_rotation_matrix(ndim=2, rng=np.random):
+def random_rotation_matrix(ndim=2, rng=None):
     """
     adapted from pg 11 of 
 
@@ -103,6 +105,9 @@ def random_rotation_matrix(ndim=2, rng=np.random):
     arXiv preprint math-ph/0609050 (2006).
 
     """
+    if rng is None:
+        rng = _get_global_rng()
+
     z = rng.randn(ndim, ndim)
     q, r = np.linalg.qr(z)
     d = np.diag(r)
@@ -113,27 +118,50 @@ def random_rotation_matrix(ndim=2, rng=np.random):
     return q
 
 
-def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1):
+def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1, workers = 1):
     """
     random rotation around axis
     """
 
-    if rng is None:
-        rng = np.random
-    if offset is None:
-        offset = tuple(s // 2 for s in img.shape)
+    if rng is None or rng is np.random:
+        rng = _get_global_rng()
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = _flatten_axis(img.ndim, axis)
 
-    M_rot = random_rotation_matrix(len(axis))
-    M = np.identity(img.ndim)
-    M[np.ix_(np.array(axis), np.array(axis))] = M_rot
+    if offset is None:
+        offset = tuple(s // 2 for s in np.array(img.shape)[np.array(axis)])
 
-    # as scipy.ndimage applies the offset *after* the affine matrix...
-    offset -= np.dot(M, offset)
+    if len(axis) < img.ndim:
+        # flatten all axis that are not affected
+        img_flattened = _to_flat_sub_array(img, axis)
+        state = rng.get_state()
 
-    return ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
+        def _func(x, rng):
+            rng.set_state(state)
+            return transform_rotation(x, rng=rng,
+                                     axis=None, offset = offset, order=order,
+                                      workers = 1)
+
+        # copy rng, to be thread-safe
+        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
+
+        if workers > 1:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                res_flattened = np.stack(executor.map(_func, img_flattened, rng_flattened))
+        else:
+            res_flattened = np.stack(map(_func, img_flattened, rng_flattened))
+
+        return _from_flat_sub_array(res_flattened, axis, img.shape)
+    else:
+        M_rot = random_rotation_matrix(len(axis), rng)
+        M = np.identity(img.ndim)
+        M[np.ix_(np.array(axis), np.array(axis))] = M_rot
+
+        # as scipy.ndimage applies the offset *after* the affine matrix...
+        offset -= np.dot(M, offset)
+
+        return ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
 
 
 
@@ -174,14 +202,15 @@ class Rotate(BaseTransform):
     flip and 90 degree rotation augmentation
     """
 
-    def __init__(self, axis=None):
+    def __init__(self, axis=None, workers = 1):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
         """
         super().__init__(
             default_kwargs=dict(
-                axis=axis
+                axis=axis,
+                workers=workers
             ),
             transform_func=transform_rotation
         )

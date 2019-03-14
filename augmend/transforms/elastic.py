@@ -147,7 +147,6 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
 
         # copy rng, to be thread-safe
         rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
-
         if workers > 1:
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 res_flattened = np.stack(executor.map(_func, img_flattened, rng_flattened))
