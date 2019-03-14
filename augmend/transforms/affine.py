@@ -211,14 +211,14 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
         scale = tuple(rng.uniform(lower, upper) for lower, upper in factors)
         
         if use_gpu and img.ndim==3:
-            print("scaling by %s via gputools"%str(scale))
+            # print("scaling by %s via gputools"%str(scale))
             inter = {
                 0: "nearest",
                 1:"linear"}
             res = zoom_gputools(img, scale, interpolation= inter[order])
             res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
         else:
-            print("scaling by %s via scipy"%str(scale))
+            # print("scaling by %s via scipy"%str(scale))
             res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
         return res
 
