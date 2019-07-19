@@ -3,7 +3,7 @@ from .affine import FlipRot90, Flip, Rotate, Scale
 
 from .elastic import Elastic
 from .other import CutOut
-from .intensity import AdditiveNoise
+from .intensity import AdditiveNoise, IntensityScaleShift
 
 
 
