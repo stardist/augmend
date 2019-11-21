@@ -13,5 +13,10 @@ setup(
     description='Augmend',
     license='BSD 3-Clause License',
     packages=find_packages(),
+    package_data={"augmend":
+                        ['transforms/kernels/*.cl'
+                        ],
+
+                    },
     python_requires='>=3.5'
 )
