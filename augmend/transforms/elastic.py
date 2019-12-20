@@ -105,7 +105,6 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
 
 
     """
-
     img = np.asanyarray(img)
 
     axis = _flatten_axis(img.ndim, axis)
@@ -142,7 +141,8 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
             rng.set_state(state)
             return transform_elastic(x, rng=rng,
                                      axis=None, grid=grid, amount=amount, order=order,
-                                     workers=1
+                                     workers=1,
+                                     use_gpu = use_gpu
                                      )
 
         # copy rng, to be thread-safe
@@ -158,7 +158,6 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
     else:
         # print(np.sum(rng.get_state()[1]))
         dxs_coarse = list((a * rng.uniform(-1, 1, grid)).astype(np.float32) for a in amount)
-
         # make sure, the border dxs are pointing inwards, such that
         # we dont have out-of-border pixel accesses
 

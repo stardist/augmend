@@ -246,8 +246,7 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
             inter = {
                 0: "nearest",
                 1:"linear"}
-            res = zoom_gputools(img, scale, interpolation= inter[order])
-            res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
+            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape)
         else:
             # print("scaling by %s via scipy"%str(scale))
             with warnings.catch_warnings():
