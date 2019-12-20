@@ -289,10 +289,10 @@ class Flip(BaseTransform):
 
 class Rotate(BaseTransform):
     """
-    flip and 90 degree rotation augmentation
+    random rotations 
     """
 
-    def __init__(self, axis=None, workers = 1):
+    def __init__(self, axis=None, order=1, mode = "reflect", workers = 1):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -300,6 +300,8 @@ class Rotate(BaseTransform):
         super().__init__(
             default_kwargs=dict(
                 axis=axis,
+                order = order,
+                mode = mode,
                 workers=workers
             ),
             transform_func=transform_rotation
