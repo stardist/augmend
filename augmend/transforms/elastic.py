@@ -5,7 +5,7 @@ from scipy import ndimage
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from .base import BaseTransform
-from ..utils import _raise, _get_global_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array
+from ..utils import _raise, _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array
 
 
 def abspath(myPath):
@@ -129,8 +129,7 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
     if np.amin(grid) < 2:
         raise ValueError("grid should be at least 2x2 (but is %s)" % str(grid))
 
-    if rng is None or rng is np.random:
-        rng = _get_global_rng()
+    rng = _validate_rng(rng)
 
     if len(axis) < img.ndim:
         # flatten all axis that are not affected

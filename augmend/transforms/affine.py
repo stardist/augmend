@@ -8,7 +8,7 @@ from copy import deepcopy
 
 
 from .base import BaseTransform
-from ..utils import _raise, _get_global_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array, pad_to_shape
+from ..utils import _raise, _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array, pad_to_shape
 
 def subgroup_permutations(ndim, axis=None):
     """
@@ -40,8 +40,7 @@ def transform_flip_rot90(img, rng=None, axis=None):
     random augmentation of an array around axis
     """
 
-    if rng is None or rng is np.random:
-        rng = _get_global_rng()
+    rng = _validate_rng(rng)
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = _flatten_axis(img.ndim, axis)
@@ -75,8 +74,7 @@ def transform_flip(img, rng=None, axis=None):
     random augmentation of an array around axis
     """
 
-    if rng is None or rng is np.random:
-        rng = _get_global_rng()
+    rng = _validate_rng(rng)
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = _flatten_axis(img.ndim, axis)
@@ -108,8 +106,7 @@ def random_rotation_matrix(ndim=2, rng=None):
     arXiv preprint math-ph/0609050 (2006).
 
     """
-    if rng is None:
-        rng = _get_global_rng()
+    rng = _validate_rng(rng)
 
     z = rng.randn(ndim, ndim)
     q, r = np.linalg.qr(z)
@@ -126,8 +123,7 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
     random rotation around axis
     """
 
-    if rng is None or rng is np.random:
-        rng = _get_global_rng()
+    rng = _validate_rng(rng)
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = _flatten_axis(img.ndim, axis)
@@ -168,7 +164,7 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
 
 
 
-def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=False):
+def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, use_gpu=False):
     """
     scale tranformation
     :param img, ndarray:
@@ -177,8 +173,8 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
         the random number generator to be used
     :param axis, tuple or callable:
         the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
-    :param factors, float, tuple of floats of same length as axis, or callable:
-        the maximal scales per axis.
+    :param amount, pair of float, or tuple of pairs  of same length as axis, or callable:
+        the maximal scale amount (scale_min, scale_max) per axis.
     :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
     :return ndarray:
@@ -203,22 +199,21 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
 
     axis = _flatten_axis(img.ndim, axis)
 
-    if np.isscalar(factors):
-        factors = (factors,factors) * len(axis)
+    if np.isscalar(amount):
+        amount = (amount,amount) * len(axis)
 
-    if np.isscalar(factors[0]):
-        factors = (factors,) * len(axis)
+    if np.isscalar(amount[0]):
+        amount = (amount,) * len(axis)
 
-    factors = np.asanyarray(factors)
+    amount = np.asanyarray(amount)
 
     if not img.ndim >= len(axis):
         raise ValueError("dimension of image (%s) < length of axis (%s)" % (img.ndim, len(axis)))
 
-    if not len(axis) == len(factors):
-        raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(factors)))
+    if not len(axis) == len(amount):
+        raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
 
-    if rng is None or rng is np.random:
-        rng = _get_global_rng()
+    rng = _validate_rng(rng)
 
     if len(axis) < img.ndim:
         # flatten all axis that are not affected
@@ -228,7 +223,7 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
         def _func(x, rng):
             rng.set_state(state)
             return transform_scale(x, rng=rng,
-                                     axis=None, factors = factors, order=order, use_gpu = use_gpu)
+                                     axis=None, amount=amount, order=order, use_gpu = use_gpu)
 
         # copy rng, to be thread-safe
         rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
@@ -239,7 +234,7 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
 
     else:
 
-        scale = tuple(rng.uniform(lower, upper) for lower, upper in factors)
+        scale = tuple(rng.uniform(lower, upper) for lower, upper in amount)
 
         if use_gpu and img.ndim==3:
             # print("scaling by %s via gputools"%str(scale))
@@ -251,7 +246,7 @@ def transform_scale(img, rng=None, axis=None,  factors=(1,2), order=1, use_gpu=F
             # print("scaling by %s via scipy"%str(scale))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                res = pad_to_shape(ndimage.zoom(img, scale, order=order), img.shape)
+                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = "reflect"), img.shape)
         return res
 
 
@@ -313,7 +308,7 @@ class Scale(BaseTransform):
     scale augmentation
     """
 
-    def __init__(self, axis=None, factors=2, order=1, use_gpu =False):
+    def __init__(self, axis=None, amount=2, order=1, use_gpu =False):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -321,7 +316,7 @@ class Scale(BaseTransform):
         super().__init__(
             default_kwargs=dict(
                 axis=axis,
-                factors = factors,
+                amount = amount,
                 order=order,
                 use_gpu  = use_gpu
             ),

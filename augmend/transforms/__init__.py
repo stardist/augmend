@@ -2,7 +2,7 @@ from .base import TransformTree, BaseTransform, ChoiceTransform, ConcatenateTran
 from .affine import FlipRot90, Flip, Rotate, Scale
 
 from .elastic import Elastic
-from .other import CutOut
+from .other import CutOut, GaussianBlur
 from .intensity import AdditiveNoise, IntensityScaleShift
 
 

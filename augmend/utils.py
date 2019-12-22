@@ -11,6 +11,13 @@ from functools import partial
 def _get_global_rng():
     return np.random.random.__self__
 
+def _validate_rng(rng):
+    if rng is None or rng is np.random:
+        rng = _get_global_rng()
+    return rng
+
+    
+
 class LeafTuple(tuple):
     """
     As we implicitely assume that a tuple or list cannot be a terminal leaf node,
@@ -42,7 +49,7 @@ def pad_to_shape(d, dshape, mode = "constant"):
 
     diff = np.array(dshape)- np.array(d.shape)
     #first shrink
-    slices  = [slice(-x//2,x//2) if x<0 else slice(None,None) for x in diff]
+    slices  = tuple(slice(-x//2,x//2) if x<0 else slice(None,None) for x in diff)
     res = d[slices]
     #then pad
     # return np.pad(res,[(n/2,n-n/2) if n>0 else (0,0) for n in diff],mode=mode)
