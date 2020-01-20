@@ -139,7 +139,8 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
         def _func(x, rng):
             rng.set_state(state)
             return transform_rotation(x, rng=rng,
-                                     axis=None, offset = offset, order=order,
+                                      axis=None, offset = offset, order=order,
+                                      mode=mode,
                                       workers = 1)
 
         # copy rng, to be thread-safe
@@ -147,9 +148,9 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
 
         if workers > 1:
             with ThreadPoolExecutor(max_workers=workers) as executor:
-                res_flattened = np.stack(executor.map(_func, img_flattened, rng_flattened))
+                res_flattened = np.stack(tuple(executor.map(_func, img_flattened, rng_flattened)))
         else:
-            res_flattened = np.stack(map(_func, img_flattened, rng_flattened))
+            res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
 
         return _from_flat_sub_array(res_flattened, axis, img.shape)
     else:
@@ -164,7 +165,7 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
 
 
 
-def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, use_gpu=False):
+def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False):
     """
     scale tranformation
     :param img, ndarray:
@@ -223,13 +224,18 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, use_gpu=Fa
         def _func(x, rng):
             rng.set_state(state)
             return transform_scale(x, rng=rng,
-                                     axis=None, amount=amount, order=order, use_gpu = use_gpu)
+                                   axis=None, amount=amount, order=order,
+                                   mode=mode,
+                                   use_gpu = use_gpu)
 
         # copy rng, to be thread-safe
         rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
 
-        res_flattened = np.stack(map(_func, img_flattened, rng_flattened))
+        res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
 
+        # ensure that rng was stepped once
+        dummy = rng.uniform()
+        
         return _from_flat_sub_array(res_flattened, axis, img.shape)
 
     else:
@@ -241,12 +247,12 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, use_gpu=Fa
             inter = {
                 0: "nearest",
                 1:"linear"}
-            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape)
+            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode)
         else:
             # print("scaling by %s via scipy"%str(scale))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = "reflect"), img.shape)
+                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode), img.shape,mode=mode)
         return res
 
 
@@ -308,7 +314,7 @@ class Scale(BaseTransform):
     scale augmentation
     """
 
-    def __init__(self, axis=None, amount=2, order=1, use_gpu =False):
+    def __init__(self, axis=None, amount=2, order=1, mode="constant", use_gpu =False):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -318,6 +324,7 @@ class Scale(BaseTransform):
                 axis=axis,
                 amount = amount,
                 order=order,
+                mode=mode,
                 use_gpu  = use_gpu
             ),
             transform_func=transform_scale
