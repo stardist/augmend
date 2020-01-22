@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
 
-
 from .base import BaseTransform
 from ..utils import _raise, _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array, pad_to_shape
 
@@ -67,6 +66,62 @@ def transform_flip_rot90(img, rng=None, axis=None):
             augmented = np.flip(augmented, axis)
     return augmented
 
+def iter_fliprot90(img, axis = None, copy = True, return_mapping = False):
+    """generates all fliprot90 versions of img
+
+    img: np.ndarray
+       The image to fliprot
+    axis: tuple
+       Axis over which to flip and rotate
+    copy: boolean
+       If true, create copies of the img
+    return_mapping: boolean
+       If true, return triples (y, f, f_inv) such that y = f(img) and img = f_inv(y)
+    """
+
+    # list of all permutations
+    axis = _flatten_axis(img.ndim, axis)
+
+    perms = tuple(subgroup_permutations(img.ndim, axis))
+    # list of all flips
+    flips = tuple(subgroup_flips(img.ndim, axis))
+
+    perms_inv, flips_inv = perms[::-1], flips[::-1]
+
+    def _inverse_perm(perm):
+        a = tuple(range(img.ndim))
+        return tuple(perm.index(_a) for _a in a)
+
+    def _perm(perm,x):
+        perm = tuple(perm[:x.ndim])
+        perm = perm + tuple(range(len(perm),x.ndim))
+        return x.transpose(perm)
+
+    def _flip(flip,x):
+        flip = tuple(flip[:x.ndim])
+        flip = flip + tuple(False for _ in range(len(perm),x.ndim))
+        for axis, f in enumerate(flip):
+            x = np.flip(x, axis) if f else x
+        return x
+
+    def _apply(x, perm,flip,inverse=False):
+        if inverse:
+            perm = _inverse_perm(perm)
+            return _perm(perm,_flip(flip,x))
+        else:
+            return _flip(flip,_perm(perm,x))
+
+    for perm,flip in itertools.product(perms, flips):
+        def get_map(perm,flip,inverse=False):
+            def iter_map(x):
+                return _apply(x,perm,flip,inverse=inverse)
+            return iter_map
+        f, f_inv = get_map(perm,flip), get_map(perm,flip,inverse = True)
+        augmented = f(img).copy() if copy else f(img)
+        if return_mapping:
+            yield augmented, f, f_inv
+        else:
+            yield augmented
 
 
 def transform_flip(img, rng=None, axis=None):

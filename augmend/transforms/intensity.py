@@ -6,15 +6,14 @@ from ..utils import _validate_rng, _flatten_axis
 def additive_noise(x,rng, sigma):
     rng = _validate_rng(rng)
 
-
     if callable(sigma):
         return x + sigma(x, rng)
     else:
         if np.isscalar(sigma):
-            sigma = (sigma,sigma) * len(axis)
+            sigma = (sigma,sigma) 
         assert len(sigma)==2
         noise = rng.uniform(*sigma)
-        return x + noise * rng.normal(0, 1,x.shape) 
+        return x + noise*rng.normal(0, 1,x.shape) 
 
 def intensity_scale_shift(x, rng, scale_range, shift_range, axis):
     rng = _validate_rng(rng)
