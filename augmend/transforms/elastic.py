@@ -46,6 +46,7 @@ def _zoom_and_transform_gpu(img, dxs_coarse, order):
 
     options_types = {np.uint8: ["-D", "TYPENAME=uchar", "-D", "READ_IMAGE=read_imageui"],
                      np.uint16: ["-D", "TYPENAME=short", "-D", "READ_IMAGE=read_imageui"],
+                     np.int32: ["-D", "TYPENAME=int", "-D", "READ_IMAGE=read_imagei"],
                      np.float32: ["-D", "TYPENAME=float", "-D", "READ_IMAGE=read_imagef"]}
 
     dtype = img.dtype.type
@@ -62,7 +63,7 @@ def _zoom_and_transform_gpu(img, dxs_coarse, order):
     prog.run_kernel("zoom_and_transform%s"%img.ndim,
                     res_g.shape[::-1], None,
                     img_im, *dxs_im, res_g.data)
-    return res_g.get()
+    return res_g.get().astype(dtype, copy = False)
     #
     # zoom_factor = tuple(s / g for s, g in zip(img.shape, dxs_coarse[0].shape))
     # dxs = tuple(ndimage.zoom(dx, zoom_factor, order=1) for dx in dxs_coarse)
@@ -134,10 +135,11 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
     if len(axis) < img.ndim:
         # flatten all axis that are not affected
         img_flattened = _to_flat_sub_array(img, axis)
-        state = rng.get_state()
+        # state = rng.get_state()
 
         def _func(x, rng):
-            rng.set_state(state)
+            # rng.set_state(state)
+            # print(rng.uniform(0,1))
             return transform_elastic(x, rng=rng,
                                      axis=None, grid=grid, amount=amount, order=order,
                                      workers=1,

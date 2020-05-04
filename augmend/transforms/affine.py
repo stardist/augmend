@@ -177,9 +177,7 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
     """
     random rotation around axis
     """
-
     rng = _validate_rng(rng)
-
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = _flatten_axis(img.ndim, axis)
 
@@ -189,10 +187,10 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
     if len(axis) < img.ndim:
         # flatten all axis that are not affected
         img_flattened = _to_flat_sub_array(img, axis)
-        state = rng.get_state()
+        # state = rng.get_state()
 
         def _func(x, rng):
-            rng.set_state(state)
+            # rng.set_state(state)
             return transform_rotation(x, rng=rng,
                                       axis=None, offset = offset, order=order,
                                       mode=mode,
@@ -274,10 +272,10 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     if len(axis) < img.ndim:
         # flatten all axis that are not affected
         img_flattened = _to_flat_sub_array(img, axis)
-        state = rng.get_state()
+        # state = rng.get_state()
 
         def _func(x, rng):
-            rng.set_state(state)
+            # rng.set_state(state)
             return transform_scale(x, rng=rng,
                                    axis=None, amount=amount, order=order,
                                    mode=mode,
