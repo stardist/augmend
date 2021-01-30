@@ -309,6 +309,94 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
         return res
 
 
+def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False):
+    """
+    isotropic scale transformation
+    :param img, ndarray:
+        the nD image to deform
+    :param rng:
+        the random number generator to be used
+    :param axis, tuple or callable:
+        the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
+    :param amount, pair of float
+        the maximal scale amount (scale_min, scale_max) 
+    :param order, int or callable:
+        the interpolation order (e.g. set order = 0 for nearest neighbor)
+    :return ndarray:
+        the deformed img/array
+
+    Example:
+    ========
+
+    img = np.zeros((128,) * 2, np.float32)
+
+    img[::16] = 128
+    img[:,::16] = 128
+
+    out = transform_scale(img, axis = 1, amounts=(1,2))
+
+
+    """
+    if use_gpu:
+        from gputools import scale as zoom_gputools
+
+    img = np.asanyarray(img)
+
+    axis = _flatten_axis(img.ndim, axis)
+
+    if np.isscalar(amount):
+        amount = (amount,amount) 
+
+    amount = np.asanyarray(amount)
+
+    if not img.ndim >= len(axis):
+        raise ValueError("dimension of image (%s) < length of axis (%s)" % (img.ndim, len(axis)))
+
+    if len(amount)!=2:
+        raise ValueError("amount should be a tuple of length 2!")
+
+    rng = _validate_rng(rng)
+
+    if len(axis) < img.ndim:
+        # flatten all axis that are not affected
+        img_flattened = _to_flat_sub_array(img, axis)
+        # state = rng.get_state()
+
+        def _func(x, rng):
+            # rng.set_state(state)
+            return transform_isotropic_scale(x, rng=rng,
+                                   axis=None, amount=amount, order=order,
+                                   mode=mode,
+                                   use_gpu = use_gpu)
+
+        # copy rng, to be thread-safe
+        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
+
+        res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
+
+        # ensure that rng was stepped once
+        dummy = rng.uniform()
+        
+        return _from_flat_sub_array(res_flattened, axis, img.shape)
+
+    else:
+
+        scale = rng.uniform(*amount)
+        scale = (scale,)*len(axis)
+
+        if use_gpu and img.ndim==3:
+            # print("scaling by %s via gputools"%str(scale))
+            inter = {
+                0: "nearest",
+                1:"linear"}
+            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode)
+        else:
+            # print("scaling by %s via scipy"%str(scale))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode), img.shape,mode=mode)
+        return res
+
 class FlipRot90(BaseTransform):
     """
     flip and 90 degree rotation augmentation
@@ -383,3 +471,27 @@ class Scale(BaseTransform):
             transform_func=transform_scale
         )
 
+
+
+class IsotropicScale(BaseTransform):
+    """
+    scale augmentation
+    """
+
+    def __init__(self, axis=None, amount=2, order=1, mode="constant", use_gpu =False):
+        """
+        :param axis, tuple:
+            the axis along which to flip and rotate
+        """
+        super().__init__(
+            default_kwargs=dict(
+                axis=axis,
+                amount = amount,
+                order=order,
+                mode=mode,
+                use_gpu  = use_gpu
+            ),
+            transform_func=transform_isotropic_scale
+        )
+
+        
