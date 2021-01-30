@@ -455,7 +455,7 @@ class Scale(BaseTransform):
     scale augmentation
     """
 
-    def __init__(self, axis=None, amount=2, order=1, mode="constant", use_gpu =False):
+    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -478,7 +478,7 @@ class IsotropicScale(BaseTransform):
     scale augmentation
     """
 
-    def __init__(self, axis=None, amount=2, order=1, mode="constant", use_gpu =False):
+    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
