@@ -151,7 +151,7 @@ Some transforms (e.g. `Elastic` and `Scale`) allow to use the GPU for the transf
 
 ### Available augmentations 
 
-
+![](imgs/examples.png)
 
 
 

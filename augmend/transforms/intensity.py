@@ -15,11 +15,11 @@ def additive_noise(x,rng, sigma):
         noise = rng.uniform(*sigma)
         return x + noise*rng.normal(0, 1,x.shape) 
 
-def intensity_scale_shift(x, rng, scale_range, shift_range, axis):
+def intensity_scale_shift(x, rng, scale, shift, axis):
     rng = _validate_rng(rng)
     axis = _flatten_axis(x.ndim, axis)
     size = tuple(1 if i in axis else s for i,s in enumerate(x.shape))
-    return x*rng.uniform(*scale_range, size = size)+rng.uniform(*shift_range, size = size)
+    return x*rng.uniform(*scale, size = size)+rng.uniform(*shift, size = size)
 
 
                     
@@ -39,14 +39,14 @@ class IntensityScaleShift(BaseTransform):
     apply affine intensity shift
     """
 
-    def __init__(self, scale_range=(.8,1.2), shift_range = (-.1,.1), axis=None):
+    def __init__(self, scale=(.8,1.2), shift = (-.1,.1), axis=None):
         """
         all dimensions that are given by axis will be shifted simultaneously 
         axis = None  -> all 
         axis = (0,1) -> axis 2,3... will be shifted independently 
         """
         super().__init__(
-            default_kwargs=dict(scale_range=scale_range, shift_range=shift_range, axis=axis),
+            default_kwargs=dict(scale=scale, shift=shift, axis=axis),
             transform_func=intensity_scale_shift)
 
 

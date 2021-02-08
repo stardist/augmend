@@ -5,13 +5,16 @@ mweigert@mpi-cbg.de
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
 from augmend.utils import test_pattern
-from augmend import FlipRot, Elastic, Identity, AdditiveNoise
+from augmend import FlipRot90, Elastic, Identity, AdditiveNoise
 from augmend import Augmend
+
+
+
 
 if __name__ == '__main__':
 
     x = test_pattern(ndim=2)
-    # y = (200*(x>200)).astype(np.int)
+    y = (200*(x>200)).astype(np.int)
 
     t = FlipRot()
     t = Elastic()+AdditiveNoise(sigma = 20)
