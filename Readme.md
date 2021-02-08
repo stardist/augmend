@@ -110,7 +110,7 @@ res = aug([x, y])
 
 Should result in a similar output like this (From left to right: original and 4 augmented volumes. Top and bottom, image `x` and labels `y`).
 
-![alt text](imgs/examples.png)
+![alt text](imgs/example3d.png)
 
 
 ### Drop-in replacement for (e.g. keras) data generator 
