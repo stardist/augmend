@@ -1,13 +1,20 @@
 # Augme*nd*
 
-Augmentation of n-dimensional arrays.
+Augmentation library for 2d or 3d numpy arrays tailored towards the needs of microscopy images analysis. 
 
-![](imgs/augmerino.png)
+
+*Please note that this project is still experimental and the API might change anytime.*
+
+
+
+
+<!--- ![](imgs/augmerino.png) --->
 
 Currently implemented:
 
 * flips and 90 degree rotations
-* elastic deformation 
+* scaling, elastic deformation 
+* Gaussian noise, Intensity Shifts 
 
 ## Installation
 
@@ -65,7 +72,6 @@ aug.add([FlipRot90(),FlipRot90()], probability=1)
 [X2,Y2] = aug([X,Y])
 
 ```
-
 
 ### Augmenting in 3D
 
@@ -139,6 +145,12 @@ res = next(aug_gen)
 ### Transforming arrays on the GPU
 
 Some transforms (e.g. `Elastic` and `Scale`) allow to use the GPU for the transformation (which can be a bottleneck) via the keyword `use_gpu`. This requires additionally the installation of [`gputools`](https://github.com/maweigert/gputools)
+
+
+
+
+### Available augmentations 
+
 
 
 
