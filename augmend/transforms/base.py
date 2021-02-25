@@ -16,6 +16,8 @@ class TransformTree(object):
 
         def _apply(leaf):
             trans, _x = leaf
+            # make sure that every transform has its own RandomState 
+            rng = np.random.RandomState()
             rng.set_state(rand_state)
             return trans(_x, rng=rng)
 
