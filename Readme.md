@@ -18,7 +18,7 @@ Currently implemented:
 
 ## Installation
 
-`pip install  git+https://github.com/mpicbg-csbd/augmend`
+`pip install git+https://github.com/stardist/augmend.git`
 
 ## Usage
 
