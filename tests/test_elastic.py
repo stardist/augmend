@@ -1,10 +1,10 @@
 import numpy as np
-from augmend.utils import test_pattern, plot_augmented
+from augmend.utils import create_test_pattern, plot_augmented
 from augmend import Elastic
 import time
 
 if __name__ == '__main__':
-    img = test_pattern(ndim=2, shape = (128,128,128))
+    img = create_test_pattern(shape = (128,128,128))
 
     t  = time.time()
     trans = Elastic(use_gpu=True,

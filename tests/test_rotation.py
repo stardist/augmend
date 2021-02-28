@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.misc import ascent
 from augmend.transforms.affine import transform_rotation
-from augmend.utils import test_pattern
+from augmend.utils import create_test_pattern
 from time import time
 
 if __name__ == '__main__':
-    img = test_pattern(2)
+    img = create_test_pattern()
 
 
     out = transform_rotation(img, offset = (40,40))

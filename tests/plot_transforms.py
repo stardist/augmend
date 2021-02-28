@@ -4,7 +4,7 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from augmend.utils import test_pattern
+from augmend.utils import create_test_pattern
 from augmend import FlipRot90, Elastic, Identity, AdditiveNoise
 from augmend import Augmend
 
@@ -13,7 +13,7 @@ from augmend import Augmend
 
 if __name__ == '__main__':
 
-    x = test_pattern(ndim=2)
+    x = create_test_pattern()
     y = (200*(x>200)).astype(np.int)
 
     t = FlipRot()

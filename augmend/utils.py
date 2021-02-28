@@ -201,31 +201,39 @@ def _from_flat_sub_array(arr, axis, shape):
     return arr_t
 
 
-def test_pattern(ndim=2, shape=None, dtype=np.float32):
-    if shape is None:
-        shape = (128,) * ndim
-
+def create_test_pattern(shape=(128,128), dtype=np.uint16, n_samples=None, grid_w=None):
+    """creates a single (if n_samples=None) or batch (if n_samples>0) of example images 
+    with given shape and dtype.
+    """
+    if n_samples is not None:
+        return np.stack([create_test_pattern(shape=shape, dtype=dtype, grid_w=grid_w) for _ in range(n_samples)])
+    
     x = np.zeros(shape, dtype)
     hs = (np.linspace(min(shape) // 4, 2*max(shape) // 3, len(shape))[::-1]).astype(int)
-    w = min(shape) // 12
 
+    if grid_w is None:
+        grid_w = min(shape) // 12
+    if np.isscalar(grid_w):
+        grid_w = (int(grid_w),)*2
+    if not (len(grid_w)==2 and all([isinstance(g, int) for g in grid_w])):
+        raise ValueError(f"grid {grid} must be a pair of integers")
+
+    w = np.random.randint(grid_w[0], grid_w[1]+1)
+        
+        
+    # grid 
     for i, h in enumerate(hs):
-        # ss = list(slice(None) for _ in shape)
-        # ss[i] = slice(0,None,2*w)
-
         ss = list(slice(w//4, None, 2 * w) for _ in shape)
         ss[i] = slice(None)
         x[tuple(ss)] = 128
 
+    # l-shape
     for i, h in enumerate(hs):
         ss = list(slice(_s//2 - w -_h//2, _s//2 + w-_h//2 ) for _s,_h in zip(shape, hs))
         ss[i] = slice(shape[i]//2-w -h//2 ,shape[i]//2+h//2)
         x[tuple(ss)] = 256
 
-
-    return x
-
-
+    return x.astype(dtype)
 
 
 def plot_augmented(transform, x, n = 4, rng = None, num=None, **kwargs):

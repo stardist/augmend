@@ -1,11 +1,16 @@
 # Augme*nd*
 
-Augmentation library for 2d or 3d numpy arrays tailored towards the needs of microscopy images analysis. 
+Augmentation library tailored towards the needs of microscopy images analysis. 
+
+*Augmend*  
+
+* provides a simple yet flexible augmentation pipeline without too many bells and whistles 
+* supports 2D and 3D images
+* operates on numpy arrays and can interface with keras/tensorflow generators  
+* offers optional GPU acceleration for compute intensive augmentions via OpenCL     
 
 
 *Please note that this project is still experimental and the API might change anytime.*
-
-
 
 
 <!--- ![](imgs/augmerino.png) --->
@@ -139,6 +144,18 @@ aug_gen = aug.flow(data_gen)
 
 # get the results as tuple
 res = next(aug_gen)
+```
+### Usage within a `tf.data` pipeline
+
+```
+aug = Augmend()
+aug.add([Elastic(axis=(0, 1), amount=5, order=1),
+         Elastic(axis=(0, 1), amount=5, order=0)])
+    
+dataset = tf.data.Dataset.from_tensor_slices((x,y))
+
+dataset = dataset.map(aug.tf_map, num_parallel_calls=tf.data.AUTOTUNE)
+
 ```
 
 
