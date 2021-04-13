@@ -13,13 +13,13 @@ def additive_noise(x,rng, sigma):
             sigma = (sigma,sigma) 
         assert len(sigma)==2
         noise = rng.uniform(*sigma)
-        return x + noise*rng.normal(0, 1,x.shape) 
+        return x + noise*rng.normal(0, 1,x.shape).astype(np.float32)
 
 def intensity_scale_shift(x, rng, scale, shift, axis):
     rng = _validate_rng(rng)
     axis = _flatten_axis(x.ndim, axis)
     size = tuple(1 if i in axis else s for i,s in enumerate(x.shape))
-    return x*rng.uniform(*scale, size = size)+rng.uniform(*shift, size = size)
+    return x*rng.uniform(*scale, size = size).astype(np.float32)+rng.uniform(*shift, size = size).astype(np.float32)
 
 
                     
