@@ -98,3 +98,13 @@ class Identity(BaseTransform):
             default_kwargs=dict(),
             transform_func=lambda x, rng: x
         )
+
+
+
+class Lambda(BaseTransform):
+    def __init__(self, func=lambda x, rng: x):
+        super().__init__(
+            default_kwargs=dict(),
+            transform_func=func
+        )
+        
