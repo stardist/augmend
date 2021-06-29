@@ -3,6 +3,95 @@ from scipy.ndimage.filters import gaussian_filter
 from .base import BaseTransform
 from ..utils import _validate_rng, _flatten_axis
 
+
+
+def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None):
+    """
+    amount: scalar, or pair (min, max) or tuple of pairs ((min_1, max_1), (min_2, max_2),
+    """
+    img = np.asanyarray(img)
+    axis = _flatten_axis(img.ndim, axis)
+    # TODO: add proper error handling
+
+    rng = _validate_rng(rng)
+
+    if np.isscalar(amount):
+        amount = (amount,amount) * len(axis)
+    if np.isscalar(amount[0]) and len(amount)==2:
+        amount = (amount,) * len(axis)
+
+    if not (len(amount) == len(axis) and all(len(am)==2 for am in amount)):
+        raise ValueError("misformed amount:  {amount}".format(amount=amount))
+        
+    amount = np.asanyarray(amount)
+    assert len(axis) == len(amount)
+    
+    
+    sigmas = tuple(rng.uniform(lower, upper) for lower, upper in amount)
+
+    sigmas_all = [0]*img.ndim
+    for ax,sig in zip(axis, sigmas):
+        sigmas_all[ax] = sig
+    y = gaussian_filter(img, sigmas_all, mode=mode)
+    return y
+
+
+
+def drop_planes(x, rng, axis, width, n, val):
+    rng = _validate_rng(rng)
+    axis = _flatten_axis(x.ndim, axis)
+    if np.isscalar(val):
+        val = (val, val)
+    ax = np.random.choice(axis)
+    
+    if x.shape[ax]<width:
+        raise ValueError(f'cannot drop {n} planes since shape of input {x.shape} along axis {ax} is too small')
+
+    x2 = x.copy().astype(np.float32)
+
+    ss = [slice(None)]*x.ndim
+    for _ in range(n):
+        start = rng.randint(0,x.shape[ax]-width+1)
+        ss[ax] = slice(start, start+n)
+        x2[tuple(ss)] = rng.uniform(*val)
+    return x2.astype(x.dtype, copy=False)
+
+
+
+def drop_edge_planes(x, rng, axis, width,  val):
+    rng = _validate_rng(rng)
+    axis = _flatten_axis(x.ndim, axis)
+    if np.isscalar(val):
+        val = (val, val)
+    ax = np.random.choice(axis)
+    
+    if x.shape[ax]<width:
+        raise ValueError(f'cannot drop {n} planes since shape of input {x.shape} along axis {ax} is too small')
+
+    x2 = x.copy().astype(np.float32)
+
+    ss = [slice(None)]*x.ndim
+    if rng.randint(0,2)==0:
+        ss[ax] = slice(0,width)
+    else:
+        ss[ax] = slice(-width, None)
+
+    x2[tuple(ss)] = rng.uniform(*val)
+    return x2.astype(x.dtype, copy=False)
+
+
+
+
+class GaussianBlur(BaseTransform):
+    """
+    Cut parts of the image
+    """
+    def __init__(self, amount= (1,4), mode=  "reflect", axis = None):
+        super().__init__(
+            default_kwargs=dict(amount=amount, mode=mode, axis=axis),
+            transform_func=blur)
+
+
 class CutOut(BaseTransform):
     """
     Cut parts of the image
@@ -44,45 +133,49 @@ class CutOut(BaseTransform):
             
         return y
 
-
-def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None):
+                    
+class DropPlanes(BaseTransform):
     """
-    amount: scalar, or pair (min, max) or tuple of pairs ((min_1, max_1), (min_2, max_2),
+    set planes along a random axis to given value (or random value from a given range of values)
     """
-    img = np.asanyarray(img)
-    axis = _flatten_axis(img.ndim, axis)
-    # TODO: add proper error handling
-
-    rng = _validate_rng(rng)
-
-    if np.isscalar(amount):
-        amount = (amount,amount) * len(axis)
-    if np.isscalar(amount[0]) and len(amount)==2:
-        amount = (amount,) * len(axis)
-
-    if not (len(amount) == len(axis) and all(len(am)==2 for am in amount)):
-        raise ValueError("misformed amount:  {amount}".format(amount=amount))
-        
-    amount = np.asanyarray(amount)
-    assert len(axis) == len(amount)
-    
-    
-    sigmas = tuple(rng.uniform(lower, upper) for lower, upper in amount)
-
-    sigmas_all = [0]*img.ndim
-    for ax,sig in zip(axis, sigmas):
-        sigmas_all[ax] = sig
-    y = gaussian_filter(img, sigmas_all, mode=mode)
-    return y
-         
-    
-class GaussianBlur(BaseTransform):
-    """
-    Cut parts of the image
-    """
-    def __init__(self, amount= (1,4), mode=  "reflect", axis = None):
+    def __init__(self, axis=None, n=1, width=1, val=0):
+        """
+        Parameters
+        ----------
+        axis : tuple or None
+           possible axis to use for dropping (None if all)
+        width : int 
+           with of each plane to drop
+        n    : int 
+           number of planes to drop
+        val  : float or (float, float)
+           set plane to this value 
+              
+        """
         super().__init__(
-            default_kwargs=dict(amount=amount, mode=mode, axis=axis),
-            transform_func=blur)
+            default_kwargs=dict(axis=axis, width=width, n=n, val=val),
+            transform_func=drop_planes)
 
-    
+        
+class DropEdgePlanes(BaseTransform):
+    """
+    set edge planes along a random axis to given value (or random value from a given range of values)
+    """
+    def __init__(self, axis=None, width=1, val=0):
+        """
+        Parameters
+        ----------
+        axis : tuple or None
+           possible axis to use for dropping (None if all)
+        width : int 
+           with of each plane to drop
+        val  : float or (float, float)
+           set plane to this value 
+              
+        """
+        super().__init__(
+            default_kwargs=dict(axis=axis, width=width, val=val),
+            transform_func=drop_edge_planes)
+
+
+        

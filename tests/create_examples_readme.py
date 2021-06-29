@@ -7,7 +7,7 @@ import numpy as np
 from imageio import imread
 from tifffile import imread
 import matplotlib.pyplot as plt
-from augmend import Augmend, Elastic, FlipRot90, Scale, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity
+from augmend import Augmend, Elastic, FlipRot90, Scale, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity, DropEdgePlanes
 from collections import OrderedDict
 from csbdeep.utils import normalize
 
@@ -32,7 +32,8 @@ if __name__ == '__main__':
         intensity = IntensityScaleShift(scale = (0.4,2)),
         gaussian = GaussianBlur(), 
         noise = AdditiveNoise(sigma=.2),
-        cutout = CutOut(width = (40,41))
+        cutout = CutOut(width = (40,41)),
+        dropedges = DropEdgePlanes(width = 20)
         )
 
     fig = plt.figure(figsize=(10,4), num=1)

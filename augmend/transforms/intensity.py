@@ -21,7 +21,9 @@ def intensity_scale_shift(x, rng, scale, shift, axis):
     size = tuple(1 if i in axis else s for i,s in enumerate(x.shape))
     return x*rng.uniform(*scale, size = size).astype(np.float32)+rng.uniform(*shift, size = size).astype(np.float32)
 
-
+    
+    
+    
                     
 class AdditiveNoise(BaseTransform):
     """
@@ -51,4 +53,3 @@ class IntensityScaleShift(BaseTransform):
 
 
 
-        
