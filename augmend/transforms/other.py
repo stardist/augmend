@@ -1,11 +1,12 @@
 import numpy as np
+import warnings
 from scipy.ndimage.filters import gaussian_filter 
 from .base import BaseTransform
 from ..utils import _validate_rng, _flatten_axis
 
 
 
-def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None):
+def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None, use_gpu=False):
     """
     amount: scalar, or pair (min, max) or tuple of pairs ((min_1, max_1), (min_2, max_2),
     """
@@ -32,7 +33,15 @@ def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None):
     sigmas_all = [0]*img.ndim
     for ax,sig in zip(axis, sigmas):
         sigmas_all[ax] = sig
-    y = gaussian_filter(img, sigmas_all, mode=mode)
+
+    if use_gpu:
+        from gputools import blur
+        if not mode=='constant':
+            warnings.warn(f'mode {mode} not available when using GPU - switching to mode "constant" ')
+        sigmas_all = tuple(max(1e-8,s) for s in sigmas_all)
+        y = blur(img, sigmas_all)
+    else:
+        y = gaussian_filter(img, sigmas_all, mode=mode)
     return y
 
 
@@ -86,9 +95,9 @@ class GaussianBlur(BaseTransform):
     """
     Cut parts of the image
     """
-    def __init__(self, amount= (1,4), mode=  "reflect", axis = None):
+    def __init__(self, amount= (1,4), mode=  "reflect", axis = None, use_gpu=False):
         super().__init__(
-            default_kwargs=dict(amount=amount, mode=mode, axis=axis),
+            default_kwargs=dict(amount=amount, mode=mode, axis=axis, use_gpu=use_gpu),
             transform_func=blur)
 
 
