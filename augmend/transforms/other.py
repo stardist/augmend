@@ -42,7 +42,7 @@ def drop_planes(x, rng, axis, width, n, val):
     axis = _flatten_axis(x.ndim, axis)
     if np.isscalar(val):
         val = (val, val)
-    ax = np.random.choice(axis)
+    ax = rng.choice(axis)
     
     if x.shape[ax]<width:
         raise ValueError(f'cannot drop {n} planes since shape of input {x.shape} along axis {ax} is too small')
@@ -63,7 +63,7 @@ def drop_edge_planes(x, rng, axis, width,  val):
     axis = _flatten_axis(x.ndim, axis)
     if np.isscalar(val):
         val = (val, val)
-    ax = np.random.choice(axis)
+    ax = rng.choice(axis)
     
     if x.shape[ax]<width:
         raise ValueError(f'cannot drop {n} planes since shape of input {x.shape} along axis {ax} is too small')
@@ -123,13 +123,13 @@ class CutOut(BaseTransform):
         assert len(axis) == len(width)
 
         y = img.copy()
-        for _ in range(np.random.randint(*n)):
-            width_rand = tuple(np.random.randint(*w) for w in width)
+        for _ in range(rng.randint(*n)):
+            width_rand = tuple(rng.randint(*w) for w in width)
             xs = tuple(rng.randint(0, s - w - 1) for w, s in zip(width_rand, img.shape))
             ss = list(slice(None) for _ in range(img.ndim))
             for ax,x,w in zip(axis,xs,width_rand):
                 ss[ax] = slice(x, x + w)
-            y[tuple(ss)] = np.random.uniform(*val)
+            y[tuple(ss)] = rng.uniform(*val)
             
         return y
 
