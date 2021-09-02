@@ -134,6 +134,13 @@ class Augmend(BaseAugmend):
         def _func(*args):
             return self(args)
         return tf.numpy_function(_func,list(args),tuple(a.dtype for a in args))
+
+    def torch_wrap(self, dataset):
+        """
+        returns the augmented dataset 
+        """
+        from .torch_utils import _AugDataWrapper
+        return _AugDataWrapper(self,dataset)
     
 
 class Choice(BaseAugmend):
