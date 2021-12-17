@@ -13,7 +13,7 @@ class TransformTree(object):
 
     def __call__(self, x, rng=np.random):
         # get a deterministic yet random new initial state
-        rand_state = np.random.RandomState(rng.randint(0,2**32-1)).get_state()
+        rand_state = np.random.RandomState(rng.randint(0,2**31-1)).get_state()
         
         def _apply(leaf):
             trans, _x = leaf
