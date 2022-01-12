@@ -13,7 +13,7 @@ Augmentation library tailored towards the needs of microscopy images analysis.
 *Please note that this project is still experimental and the API might change anytime.*
 
 
-<!--- ![](imgs/augmerino.png) --->
+![](imgs/augmerino.png) -
 
 Currently implemented:
 
