@@ -11,8 +11,11 @@ if __name__ == '__main__':
     out = transform_rotation(img, offset = (40,40))
 
     import matplotlib.pyplot as plt
+    plt.ion()
     plt.figure(1)
     plt.clf()
     plt.imshow(out)
     plt.show()
 
+
+    

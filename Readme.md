@@ -118,7 +118,7 @@ Should result in a similar output like this (From left to right: original and 4 
 ![alt text](imgs/example3d.png)
 
 
-### Drop-in replacement for (e.g. keras) data generator 
+### Usage with a data generator 
 
 In a supervised learning setting, one often constructs a data generator  that yeilds batches of array pairs 
 
@@ -130,8 +130,6 @@ def data_gen():
 ```
 
 `Augmend.flow` allows to wrap that generator into the augmented one, like so
-
-
 
 ```
 aug = Augmend()
@@ -145,9 +143,19 @@ aug_gen = aug.flow(data_gen)
 # get the results as tuple
 res = next(aug_gen)
 ```
-### Usage within a `tf.data` pipeline
+### Usage with `tensorflow` data pipelines
+
+`Augmend.tf_map` returns a `tensorflow` function that can be applied to an existing `tf.data` pipeline via `dataset.map()`: 
 
 ```
+import numpy as np
+import tensorflow as tf
+from augmend import Augmend
+from augmend.utils import create_test_pattern
+
+y = create_test_pattern(n_samples=16, shape=(512,512), grid_w=(3,10)).astype(np.int16)
+x = (y + 50*np.random.normal(0,1,y.shape)).astype(np.float32)
+
 aug = Augmend()
 aug.add([Elastic(axis=(0, 1), amount=5, order=1),
          Elastic(axis=(0, 1), amount=5, order=0)])
@@ -156,8 +164,24 @@ dataset = tf.data.Dataset.from_tensor_slices((x,y))
 
 dataset = dataset.map(aug.tf_map, num_parallel_calls=tf.data.AUTOTUNE)
 
+x2, y2 = next(iter(dataset))
+
 ```
 
+### Usage with pytorch Dataset
+
+`Augmend.torch_wrap` will wrap an existing `torch` dataset:  
+
+```
+from torch.utils.data import TensorDataset
+
+data = TensorDataset(torch.tensor(x),torch.tensor(y))
+
+data = aug.torch_wrap(data)
+
+x2, y2 = data[0]
+
+```
 
 ### Transforming arrays on the GPU
 

@@ -173,7 +173,7 @@ def random_rotation_matrix(ndim=2, rng=None):
     return q
 
 
-def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1, workers = 1):
+def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1, use_gpu=False, workers = 1):
     """
     random rotation around axis
     """
@@ -214,7 +214,15 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
         # as scipy.ndimage applies the offset *after* the affine matrix...
         offset -= np.dot(M, offset)
 
-        return ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
+        if use_gpu:
+            if not img.ndim==3 and mode=='constant':
+                raise ValueError('use_gpu=True only supported for img.ndim==3 and mode=="constant"')
+            from gputools.transforms import affine
+            inter = {0: "nearest",1:"linear"}
+            res = affine(img,M, interpolation=inter[order])
+        else:
+            res = ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
+        return res
 
 
 
@@ -246,9 +254,6 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
 
 
     """
-    if use_gpu:
-        from gputools import scale as zoom_gputools
-
     img = np.asanyarray(img)
 
     axis = _flatten_axis(img.ndim, axis)
@@ -295,7 +300,10 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
 
         scale = tuple(rng.uniform(lower, upper) for lower, upper in amount)
 
-        if use_gpu and img.ndim==3:
+        if use_gpu:
+            if not img.ndim==3:
+                raise ValueError('use_gpu=True only supported for img.ndim==3')
+            from gputools import scale as zoom_gputools            
             # print("scaling by %s via gputools"%str(scale))
             inter = {
                 0: "nearest",
@@ -337,8 +345,7 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
 
 
     """
-    if use_gpu:
-        from gputools import scale as zoom_gputools
+    
 
     img = np.asanyarray(img)
 
@@ -384,7 +391,10 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
         scale = rng.uniform(*amount)
         scale = (scale,)*len(axis)
 
-        if use_gpu and img.ndim==3:
+        if use_gpu:
+            if not img.ndim==3:
+                raise ValueError('use_gpu=True only supported for img.ndim==3')
+            from gputools import scale as zoom_gputools            
             # print("scaling by %s via gputools"%str(scale))
             inter = {
                 0: "nearest",
