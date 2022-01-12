@@ -140,7 +140,7 @@ class Augmend(BaseAugmend):
         returns the augmented dataset 
         """
         from .torch_utils import _AugDataWrapper
-        return _AugDataWrapper(self,dataset)
+        return _AugDataWrapper(self, dataset)
     
 
 class Choice(BaseAugmend):

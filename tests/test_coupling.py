@@ -6,8 +6,8 @@ from __future__ import print_function, unicode_literals, absolute_import, divisi
 import numpy as np
 from augmend import Augmend, Elastic, FlipRot90, Scale, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity, DropEdgePlanes
 
-if __name__ == '__main__':
-
+def test_coupling():
+    
     np.random.seed(22)
     
     img = np.random.uniform(0,1,(100,200)).astype(np.float32)
@@ -30,17 +30,20 @@ if __name__ == '__main__':
     for i,(name, t) in enumerate(transforms.items()):
         print(name)
         aug = Augmend()
-        aug.add([t,t])
+        aug.add([t,t, [t,t]])
 
         for _ in range(50):
-            x,y = aug([img,img])
-            same = np.allclose(x,y)
+            x,y,(u,w) = aug([img,img, [img, img]])
+            same = np.allclose(x,y) and np.allclose(y,u) and np.allclose(u,w)
             if not same:
                 print(name)
             assert same
 
-
+        
     
 
     
     
+
+if __name__ == '__main__':
+    pass

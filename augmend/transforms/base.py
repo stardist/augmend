@@ -12,11 +12,12 @@ class TransformTree(object):
         self.tree = tree
 
     def __call__(self, x, rng=np.random):
-        rand_state = rng.get_state()
-
+        # get a deterministic yet random new initial state
+        rand_state = np.random.RandomState(rng.randint(0,2**31-1)).get_state()
+        
         def _apply(leaf):
             trans, _x = leaf
-            # make sure that every transform has its own RandomState 
+            # make sure that every transform has its own RandomState
             rng = np.random.RandomState()
             rng.set_state(rand_state)
             return trans(_x, rng=rng)

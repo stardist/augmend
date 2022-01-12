@@ -27,8 +27,9 @@ class _AugDataWrapper(Dataset):
         return len(self._dataset)
 
     def __getitem__(self, idx):
-        x = map_iter(from_tensor, self._dataset[idx])
-        devices = map_iter(lambda x: x.device, self._dataset[idx])
+        xs0 = self._dataset[idx]
+        x = map_iter(from_tensor, xs0)
+        devices = map_iter(lambda x: x.device, xs0)
         x = self.aug(x)
         x = map_iter(lambda x, dev: to_tensor(x, device=dev), x, devices)
         return x
