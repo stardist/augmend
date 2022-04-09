@@ -122,7 +122,7 @@ Should result in a similar output like this (From left to right: original and 4 
 
 In a supervised learning setting, one often constructs a data generator  that yeilds batches of array pairs 
 
-```
+```python
 # a simple data generator (might as well return several arrays, as for a supervised data generator) 
 def data_gen():
     for i in range(4):
@@ -131,7 +131,7 @@ def data_gen():
 
 `Augmend.flow` allows to wrap that generator into the augmented one, like so
 
-```
+```python
 aug = Augmend()
 
 aug.add([FlipRot90(axis=(1, 2)),
@@ -147,7 +147,7 @@ res = next(aug_gen)
 
 `Augmend.tf_map` returns a `tensorflow` function that can be applied to an existing `tf.data` pipeline via `dataset.map()`: 
 
-```
+```python
 import numpy as np
 import tensorflow as tf
 from augmend import Augmend
@@ -172,7 +172,7 @@ x2, y2 = next(iter(dataset))
 
 `Augmend.torch_wrap` will wrap an existing `torch` dataset:  
 
-```
+```python
 from torch.utils.data import TensorDataset
 
 data = TensorDataset(torch.tensor(x),torch.tensor(y))
