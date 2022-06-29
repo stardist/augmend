@@ -33,5 +33,4 @@ def test_shapes_random_crop_fail(shape, axis, size):
         t(img)
 
 if __name__ == '__main__':
-    # simple_demo()
-    test_shapes_random_crop((500, 512), None, (200, 203))
+    simple_demo()
