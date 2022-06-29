@@ -8,12 +8,13 @@ def random_crop(x, rng, size, axis):
     rng = _validate_rng(rng)
     axis = _flatten_axis(x.ndim, axis)
     if not len(axis) == len(size):
-        raise ValueError("Length of axis and size parameters should match!")
+        raise ValueError(f"Length of axis ({len(axis)}) and size ({len(size)}) should match!")
+
     full_size = list(x.shape)
     for a, s in zip(axis, size):
         full_size[a] = s
     if not all(s >= w for s, w in zip(x.shape, full_size)):
-        raise ValueError("Input sizes cannot be smaller than crop sizes!")
+        raise ValueError(f"Input shape {x.shape} cannot be smaller than crop size {size}!")
     starts = tuple(None if i not in axis else rng.randint(0, s-w+1) for i, (s, w) in enumerate(zip(x.shape, full_size)))
     ends = tuple(None if i not in axis else start+w for i, (w, start) in enumerate(zip(full_size, starts)))
     slices = tuple(slice(start, end) for start, end in zip(starts, ends))

@@ -1,23 +1,33 @@
 import numpy as np
-from augmend import RandomCrop
+from augmend import Augmend, RandomCrop
 from augmend.utils import create_test_pattern
 import pytest
 
 def simple_demo():
-    img = create_test_pattern()
+    y = create_test_pattern()
+    x = y.astype(np.float32)+60*np.random.uniform(0,1,y.shape)
 
-    t = RandomCrop()
-    out = t(img)
+    aug = Augmend() 
+    aug.add([RandomCrop(size=(64,64)), RandomCrop(size=(64,64))])
+    
+    x2, y2 = aug([x,y])
 
     import matplotlib.pyplot as plt
     plt.ion()
-    plt.figure(1)
     plt.clf()
-    plt.subplot(1,2,1)
-    plt.imshow(img)
-    plt.subplot(1,2,2)
-    plt.imshow(out)
+    fig, axs = plt.subplots(2,2, num=1)
+    
+    titles = 'image', 'label'
 
+    for _x, _ax, _t in zip((x,y), axs[0], titles):
+        _ax.imshow(_x)
+        _ax.set_title(_t)
+    for _x, _ax, _t in zip((x2,y2), axs[1], titles):
+        _ax.imshow(_x)
+        _ax.set_title(_t)
+    
+    plt.tight_layout()
+        
 @pytest.mark.parametrize(["shape", "axis", "size", "expected_shape"], [[(500, 512), None, (256, 253), (256, 253)], [(32, 33, 36), (1, 2), (33, 12), (32, 33, 12)]])
 def test_shapes_random_crop(shape, axis, size, expected_shape):
     t = RandomCrop(size=size, axis=axis)
