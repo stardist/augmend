@@ -42,5 +42,12 @@ def test_shapes_random_crop_fail(shape, axis, size):
     with pytest.raises(ValueError):
         t(img)
 
+@pytest.mark.parametrize(["shape", "size"], [[(128, 128), (64, 64)], [(128, 365), (32, 58)], [(128, 127), (128, 127)]])
+def test_matching_crops(shape, size):
+    x = np.random.randint(0, 100, shape)
+    augmenter = Augmend([RandomCrop(size=size), RandomCrop(size=size)])
+    a, b = augmenter([x, x])
+    assert np.allclose(a, b)
+
 if __name__ == '__main__':
     simple_demo()

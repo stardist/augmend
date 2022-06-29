@@ -4,7 +4,7 @@ mweigert@mpi-cbg.de
 """
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from augmend import Augmend, Elastic, FlipRot90, Scale, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity, DropEdgePlanes
+from augmend import Augmend, Elastic, FlipRot90, Scale, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity, DropEdgePlanes, RandomCrop
 
 def test_coupling():
     
@@ -24,7 +24,8 @@ def test_coupling():
         gaussian = GaussianBlur(), 
         noise = AdditiveNoise(sigma=.2),
         cutout = CutOut(width = (40,41)),
-        dropedges = DropEdgePlanes(width = 20)
+        dropedges = DropEdgePlanes(width = 20),
+        randomcrop = RandomCrop(size=(64, 65))
         )
 
     for i,(name, t) in enumerate(transforms.items()):
