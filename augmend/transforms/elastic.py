@@ -231,5 +231,5 @@ class Elastic(BaseTransform):
                 workers = workers,
                 use_gpu = use_gpu,
                 order=order),
-            transform_func=transform_elastic
+            transform_func_array=transform_elastic
         )

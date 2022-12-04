@@ -98,7 +98,7 @@ class GaussianBlur(BaseTransform):
     def __init__(self, amount= (1,4), mode=  "reflect", axis = None, use_gpu=False):
         super().__init__(
             default_kwargs=dict(amount=amount, mode=mode, axis=axis, use_gpu=use_gpu),
-            transform_func=blur)
+            transform_func_array=blur)
 
 
 class CutOut(BaseTransform):
@@ -108,7 +108,7 @@ class CutOut(BaseTransform):
     def __init__(self, width=(10,16), n = (2,6), val = 0, axis = None):
         super().__init__(
             default_kwargs=dict(width=width, n=n, val=val, axis=axis),
-            transform_func=self._cutout)
+            transform_func_array=self._cutout)
 
     def _cutout(self, img, rng, width=(10,16), n=(2,6), val = 0, axis = None):
         rng = _validate_rng(rng)
@@ -163,7 +163,7 @@ class DropPlanes(BaseTransform):
         """
         super().__init__(
             default_kwargs=dict(axis=axis, width=width, n=n, val=val),
-            transform_func=drop_planes)
+            transform_func_array=drop_planes)
 
         
 class DropEdgePlanes(BaseTransform):
@@ -184,7 +184,7 @@ class DropEdgePlanes(BaseTransform):
         """
         super().__init__(
             default_kwargs=dict(axis=axis, width=width, val=val),
-            transform_func=drop_edge_planes)
+            transform_func_array=drop_edge_planes)
 
 
         

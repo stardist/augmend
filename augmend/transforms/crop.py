@@ -31,4 +31,4 @@ class RandomCrop(BaseTransform):
         """
         super().__init__(
             default_kwargs=dict(size=size, axis=axis),
-            transform_func=random_crop)
+            transform_func_array=random_crop)

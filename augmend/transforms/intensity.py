@@ -32,7 +32,7 @@ class AdditiveNoise(BaseTransform):
     def __init__(self, sigma=.1):
         super().__init__(
             default_kwargs=dict(sigma=sigma),
-            transform_func=additive_noise)
+            transform_func_array=additive_noise)
 
 
 
@@ -49,7 +49,7 @@ class IntensityScaleShift(BaseTransform):
         """
         super().__init__(
             default_kwargs=dict(scale=scale, shift=shift, axis=axis),
-            transform_func=intensity_scale_shift)
+            transform_func_array=intensity_scale_shift)
 
 
 

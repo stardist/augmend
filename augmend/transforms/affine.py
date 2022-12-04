@@ -129,26 +129,33 @@ def transform_flip(x: Data, rng=None, axis=None):
     random augmentation of an array around axis
     """
 
+    if x.array is not None: 
+        ndim = x.ndim 
+    else: 
+        ndim = len(x.shape)
+
     rng = _validate_rng(rng)
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
-    axis = _flatten_axis(img.ndim, axis)
+    axis = _flatten_axis(ndim, axis)
 
     # list of all permutations
-    perms = tuple(subgroup_permutations(img.ndim, axis))
+    perms = tuple(subgroup_permutations(ndim, axis))
 
     # list of all flips
-    flips = tuple(subgroup_flips(img.ndim, axis))
+    flips = tuple(subgroup_flips(ndim, axis))
 
     # random flip
     rand_flip_ind = rng.randint(len(flips))
 
     rand_flip = flips[rand_flip_ind]
 
+    
     # random flip
     for axis, f in enumerate(rand_flip):
         if f:
-            img = np.flip(img, axis)
+            if x.array is not None: 
+                out_img = np.flip(img, axis)
     return img
 
 
@@ -419,7 +426,7 @@ class FlipRot90(BaseTransform):
         """
         super().__init__(
             default_kwargs=dict(axis=axis),
-            transform_func=transform_flip_rot90
+            transform_func_array=transform_flip_rot90
         )
 
 class Flip(BaseTransform):
@@ -434,7 +441,7 @@ class Flip(BaseTransform):
         """
         super().__init__(
             default_kwargs=dict(axis=axis),
-            transform_func=transform_flip
+            transform_func_array=transform_flip
         )
 
 
@@ -455,7 +462,7 @@ class Rotate(BaseTransform):
                 mode = mode,
                 workers=workers
             ),
-            transform_func=transform_rotation
+            transform_func_array=transform_rotation
         )
 
 
@@ -478,7 +485,7 @@ class Scale(BaseTransform):
                 mode=mode,
                 use_gpu  = use_gpu
             ),
-            transform_func=transform_scale
+            transform_func_array=transform_scale
         )
 
 
@@ -501,7 +508,7 @@ class IsotropicScale(BaseTransform):
                 mode=mode,
                 use_gpu  = use_gpu
             ),
-            transform_func=transform_isotropic_scale
+            transform_func_array=transform_isotropic_scale
         )
 
         
