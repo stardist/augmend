@@ -1,4 +1,4 @@
-from .base import TransformTree, BaseTransform, ChoiceTransform, ConcatenateTransform, Identity, Lambda
+from .base import TransformTree, BaseTransform, ChoiceTransform, ConcatenateTransform, Identity, Lambda, Data
 from .affine import FlipRot90, Flip, Rotate, Scale, IsotropicScale
 
 from .elastic import Elastic

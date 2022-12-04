@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
 
-from .base import BaseTransform
+from .base import BaseTransform, Data
 from ..utils import _raise, _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array, pad_to_shape
 
 def subgroup_permutations(ndim, axis=None):
@@ -124,7 +124,7 @@ def iter_fliprot90(img, axis = None, copy = True, return_mapping = False):
             yield augmented
 
 
-def transform_flip(img, rng=None, axis=None):
+def transform_flip(x: Data, rng=None, axis=None):
     """
     random augmentation of an array around axis
     """

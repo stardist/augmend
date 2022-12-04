@@ -1,6 +1,30 @@
+from dataclasses import dataclass
+from typing import Union
 import numpy as np
 from functools import reduce
 from ..utils import _raise, _normalized_weights, _all_of_type, map_single_func_tree, zip_trees
+
+
+@dataclass(frozen=True)
+class Data(object):
+    array: np.ndarray = None
+    points: np.ndarray = None
+    shape: tuple = None
+    def __post_init__(self):
+        if self.array is not None:
+            # if self.shape is None: 
+            #     # https://stackoverflow.com/questions/53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
+            #     super().__setattr__('shape', self.array.shape)
+            if self.array.shape != self.array.shape:
+                raise ValueError(f'Shape of array and given shape should be the same!')
+
+        if self.points is not None:
+            if not self.points.ndim==2:
+                raise ValueError(f'Points should be of shape (n,d), e.g. (101,2)!')
+
+    @staticmethod
+    def from_array(self, x: np.ndarray):
+        return Data(array=x)
 
 
 
@@ -11,7 +35,7 @@ class TransformTree(object):
         _all_of_type(tree, BaseTransform) or _raise(ValueError("not a tree of transforms"))
         self.tree = tree
 
-    def __call__(self, x, rng=np.random):
+    def __call__(self, x: Union[np.ndarray, Data], rng=np.random):
         # get a deterministic yet random new initial state
         rand_state = np.random.RandomState(rng.randint(0,2**31-1)).get_state()
         
@@ -29,6 +53,7 @@ class TransformTree(object):
         return "%s" % (str(self.tree[0] if len(self.tree) == 1 else self.tree))
 
 
+
 class BaseTransform(object):
     """
     base class for an augmentation action
@@ -38,7 +63,13 @@ class BaseTransform(object):
         self._default_kwargs = default_kwargs
         self._transform_func = transform_func
 
-    def __call__(self, x, rng=None, **kwargs):
+    def __call__(self, x: Union[np.ndarray, Data], rng=None, **kwargs):
+        if isinstance(x, np.ndarray):
+            x = Data.from_array(x)
+        elif not isinstance(x, Data):
+            print(isinstance(x, Data))
+            raise ValueError('Input to a transform should be either a ndarray or a augmend.Data object!')
+
         kwargs = {**self._default_kwargs, **kwargs}
         return self._transform_func(x,
                                     rng=rng,
