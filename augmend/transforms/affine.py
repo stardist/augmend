@@ -26,7 +26,7 @@ def subgroup_flips(ndim, axis=None):
     iterate over the product subgroup (False,True) of given axis
     """
     axis = _flatten_axis(ndim, axis)
-    res = np.zeros(ndim, np.bool)
+    res = np.zeros(ndim, bool)
     for prod in itertools.product((False, True), repeat=len(axis)):
 
         for a, p in zip(axis, prod):
