@@ -2,31 +2,16 @@ from dataclasses import dataclass
 from typing import Union
 import numpy as np
 from functools import reduce
-from ..utils import _raise, _normalized_weights, _all_of_type, map_single_func_tree, zip_trees
+from ..utils import _raise, _normalized_weights, _all_of_type, map_single_func_tree, zip_trees, _validate_rng
 
 
-@dataclass(frozen=True)
 class Data(object):
-    array: np.ndarray = None
-    points: np.ndarray = None
-    shape: tuple = None
-    def __post_init__(self):
-        if self.array is not None:
-            # if self.shape is None: 
-            #     # https://stackoverflow.com/questions/53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
-            #     super().__setattr__('shape', self.array.shape)
-            if self.array.shape != self.array.shape:
-                raise ValueError(f'Shape of array and given shape should be the same!')
-
+    def __init__(self, image, points=None) -> None:
+        self.image = image
+        self.points = points
         if self.points is not None:
             if not self.points.ndim==2:
                 raise ValueError(f'Points should be of shape (n,d), e.g. (101,2)!')
-
-    @staticmethod
-    def from_array( x: np.ndarray):
-        return Data(array=x)
-
-
 
 class TransformTree(object):
     def __init__(self, tree):
@@ -59,43 +44,43 @@ class BaseTransform(object):
     base class for an augmentation action
     """
 
-    def __init__(self, default_kwargs, transform_func_array, transform_func_points=None):
+    def __init__(self, default_kwargs=None):
+        if default_kwargs is None: 
+            default_kwargs = dict() 
         self._default_kwargs = default_kwargs
-        self._transform_func_array = transform_func_array
-        self._transform_func_points = transform_func_points 
+    
+    def transform_image(self, img: np.ndarray, rng):
+        raise NotImplementedError()
+
+    def transform_points(self, points : np.ndarray, shape: tuple, rng):
+        raise NotImplementedError()
 
     def __call__(self, x: Union[np.ndarray, Data], rng=None, **kwargs):
-        kwargs = {**self._default_kwargs, **kwargs}
+
+        rng = _validate_rng(rng) 
 
         rand_state = np.random.RandomState(rng.randint(0,2**31-1)).get_state()
         rng = np.random.RandomState()
 
         if isinstance(x, np.ndarray):
-            x = Data.from_array(x)
+            x = Data(image=x)
             rng.set_state(rand_state)
-            out = self._transform_func_array(x,rng=rng,**kwargs)
-            return out.array
+            out = self.transform_image(x,rng=rng,**kwargs)
+            return out.image
 
         else:         
             # elif not isinstance(x, Data):
             #     raise ValueError('Input to a transform should be either a ndarray or a augmend.Data object!')
-            if x.array is not None: 
-                out_array = self.transform_func_array(x.array,
-                                        rng=rng,
-                                        **kwargs)
-            else: 
-                out_array = None 
+            rng.set_state(rand_state)
+            out_image = self.transform_image(x.image,rng=rng)
 
             if x.points is not None: 
-                if self._transform_func_points is None: 
-                    raise ValueError('Transform does not provide a method for points input!')
-                out_points = self._transform_func_points(x.points,
-                                        rng=rng,
-                                        **kwargs)
+                rng.set_state(rand_state)
+                out_points = self.transform_points(x.points, x.image.shape, rng=rng)
             else: 
                 out_points = None 
 
-            return Data(array=out_array, points=out_points, shape=x.shape) 
+            return Data(image=out_image, points=out_points) 
 
     def __add__(self, other):
         return ConcatenateTransform([self, other])
@@ -110,18 +95,15 @@ class BaseTransform(object):
 
     def __repr__(self):
         return self.__class__.__name__
-        # kwargs_str = '\n'.join(" = ".join(map(str, item)) for item in self._default_kwargs.items())
-        # return "%s\n\ndefault arguments:\n%s" % (self.__class__.__name__, kwargs_str)
 
 
 class ConcatenateTransform(BaseTransform):
     def __init__(self, transforms):
         self.transforms = tuple(transforms)
-        super().__init__(
-            default_kwargs=dict(),
-            transform_func_array=lambda x, rng: reduce(lambda x, f: f(x, rng), self.transforms, x)
-        )
 
+    def __call__(self, x: Data, rng=None):
+        return reduce(lambda x, f: f(x, rng), self.transforms, x)
+        
     def __repr__(self):
         return "%s%s" % (self.__class__.__name__, self.transforms)
 
@@ -130,12 +112,9 @@ class ChoiceTransform(BaseTransform):
     def __init__(self, transforms, weights=None):
         self.transforms = tuple(transforms)
         self.weights = _normalized_weights(weights, len(transforms))
-        super().__init__(
-            default_kwargs=dict(),
-            transform_func_array=(
-                lambda x, rng: self.transforms[rng.choice(len(self.transforms), p=self.weights)](x, rng)
-            )
-        )
+
+    def __call__(self, x: Data, rng=None):
+        return self.transforms[rng.choice(len(self.transforms), p=self.weights)](x, rng)
 
     def __repr__(self):
         return "%s%s" % (self.__class__.__name__, self.transforms)
@@ -145,21 +124,21 @@ class Identity(BaseTransform):
     """
     Do nothing
     """
-    def __init__(self):
-        super().__init__(
-            default_kwargs=dict(),
-            transform_func_array=(lambda x, rng: x),
-            transform_func_points=(lambda x, rng: x)
-        )
+    def transform_image(self, img: np.ndarray, rng):
+        return img
 
-
+    def transform_points(self, points : np.ndarray, shape: tuple, rng):
+        return points
 
 class Lambda(BaseTransform):
-    def __init__(self, func_array=(lambda x, rng: x), func_points=(lambda x, rng: x)):
-        super().__init__(
-            default_kwargs=dict(),            
-            transform_func_array=func_array, 
-            transform_func_points=func_points, 
-        )
-        
+    def __init__(self, func_image=(lambda x, rng: x), func_points=(lambda x, shape, rng: x)):
+        super().__init__(default_kwargs=dict()) 
 
+        self._transform_func_image=func_image, 
+        self._transform_func_points=func_points 
+
+    def transform_image(self, img: np.ndarray, rng):
+        return self._transform_func_image(img, rng)
+
+    def transform_points(self, points : np.ndarray, shape: tuple, rng):
+        return self._transform_func_points(points, shape, rng)

@@ -34,38 +34,6 @@ def subgroup_flips(ndim, axis=None):
         yield tuple(res)
 
 
-def transform_flip_rot90(img, rng=None, axis=None):
-    """
-    random augmentation of an array around axis
-    """
-
-    rng = _validate_rng(rng)
-
-    # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
-    axis = _flatten_axis(img.ndim, axis)
-
-    # list of all permutations
-    perms = tuple(subgroup_permutations(img.ndim, axis))
-
-    # list of all flips
-    flips = tuple(subgroup_flips(img.ndim, axis))
-
-    # random permutation and flip
-    rand_perm_ind = rng.randint(len(perms))
-    rand_flip_ind = rng.randint(len(flips))
-
-    rand_perm = perms[rand_perm_ind]
-    rand_flip = flips[rand_flip_ind]
-
-    # first random permute
-    augmented = img.transpose(rand_perm)
-
-    # then random flip
-    for axis, f in enumerate(rand_flip):
-        if f:
-            augmented = np.flip(augmented, axis)
-    return augmented
-
 def iter_fliprot90(img, axis = None, copy = True, return_mapping = False):
     """generates all fliprot90 versions of img
 
@@ -124,40 +92,6 @@ def iter_fliprot90(img, axis = None, copy = True, return_mapping = False):
             yield augmented
 
 
-def transform_flip(x: Data, rng=None, axis=None):
-    """
-    random augmentation of an array around axis
-    """
-
-    if x.array is not None: 
-        ndim = x.ndim 
-    else: 
-        ndim = len(x.shape)
-
-    rng = _validate_rng(rng)
-
-    # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
-    axis = _flatten_axis(ndim, axis)
-
-    # list of all permutations
-    perms = tuple(subgroup_permutations(ndim, axis))
-
-    # list of all flips
-    flips = tuple(subgroup_flips(ndim, axis))
-
-    # random flip
-    rand_flip_ind = rng.randint(len(flips))
-
-    rand_flip = flips[rand_flip_ind]
-
-    
-    # random flip
-    for axis, f in enumerate(rand_flip):
-        if f:
-            if x.array is not None: 
-                out_img = np.flip(img, axis)
-    return img
-
 
 def random_rotation_matrix(ndim=2, rng=None):
     """
@@ -169,7 +103,6 @@ def random_rotation_matrix(ndim=2, rng=None):
 
     """
     rng = _validate_rng(rng)
-
     z = rng.randn(ndim, ndim)
     q, r = np.linalg.qr(z)
     d = np.diag(r)
@@ -178,58 +111,6 @@ def random_rotation_matrix(ndim=2, rng=None):
     # enforce parity
     q *= np.linalg.det(q)
     return q
-
-
-def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1, use_gpu=False, workers = 1):
-    """
-    random rotation around axis
-    """
-    rng = _validate_rng(rng)
-    # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
-    axis = _flatten_axis(img.ndim, axis)
-
-    if offset is None:
-        offset = tuple(s // 2 for s in np.array(img.shape)[np.array(axis)])
-
-    if len(axis) < img.ndim:
-        # flatten all axis that are not affected
-        img_flattened = _to_flat_sub_array(img, axis)
-        # state = rng.get_state()
-
-        def _func(x, rng):
-            # rng.set_state(state)
-            return transform_rotation(x, rng=rng,
-                                      axis=None, offset = offset, order=order,
-                                      mode=mode,
-                                      workers = 1)
-
-        # copy rng, to be thread-safe
-        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
-
-        if workers > 1:
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                res_flattened = np.stack(tuple(executor.map(_func, img_flattened, rng_flattened)))
-        else:
-            res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
-
-        return _from_flat_sub_array(res_flattened, axis, img.shape)
-    else:
-        M_rot = random_rotation_matrix(len(axis), rng)
-        M = np.identity(img.ndim)
-        M[np.ix_(np.array(axis), np.array(axis))] = M_rot
-
-        # as scipy.ndimage applies the offset *after* the affine matrix...
-        offset -= np.dot(M, offset)
-
-        if use_gpu:
-            if not img.ndim==3 and mode=='constant':
-                raise ValueError('use_gpu=True only supported for img.ndim==3 and mode=="constant"')
-            from gputools.transforms import affine
-            inter = {0: "nearest",1:"linear"}
-            res = affine(img,M, interpolation=inter[order])
-        else:
-            res = ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
-        return res
 
 
 
@@ -352,15 +233,11 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
 
 
     """
-    
 
     img = np.asanyarray(img)
-
     axis = _flatten_axis(img.ndim, axis)
-
     if np.isscalar(amount):
         amount = (amount,amount) 
-
     amount = np.asanyarray(amount)
 
     if not img.ndim >= len(axis):
@@ -414,24 +291,11 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
                 res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode), img.shape,mode=mode)
         return res
 
-class FlipRot90(BaseTransform):
-    """
-    flip and 90 degree rotation augmentation
-    """
 
-    def __init__(self, axis=None):
-        """
-        :param axis, tuple:
-            the axis along which to flip and rotate
-        """
-        super().__init__(
-            default_kwargs=dict(axis=axis),
-            transform_func_array=transform_flip_rot90
-        )
 
 class Flip(BaseTransform):
     """
-    flip and 90 degree rotation augmentation
+    flip augmentation
     """
 
     def __init__(self, axis=None):
@@ -439,32 +303,142 @@ class Flip(BaseTransform):
         :param axis, tuple:
             the axis along which to flip and rotate
         """
-        super().__init__(
-            default_kwargs=dict(axis=axis),
-            transform_func_array=transform_flip
-        )
+        super().__init__() 
+        self.axis=axis
 
+
+    def flip_perm(self, ndim:int , rng=None):
+        """
+        random augmentation of an array around axis
+        """
+        rng = _validate_rng(rng)
+        # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
+        axis = _flatten_axis(ndim, self.axis)
+        # list of all flips
+        flips = tuple(subgroup_flips(ndim, axis))
+        # random flip
+        rand_flip_ind = rng.randint(len(flips))
+        rand_flip = flips[rand_flip_ind]
+
+        return rand_flip, tuple(range(ndim))
+
+    def transform_image(self, img, rng):
+        rand_flip, rand_perm = self.flip_perm(img.ndim, rng)
+        # first random permute
+        augmented = img.transpose(rand_perm)
+        # then random flip
+        for axis, f in enumerate(rand_flip):
+            if f:
+                augmented = np.flip(augmented, axis)
+        return augmented
+
+    def transform_points(self, points, shape, rng):
+        rand_flip, rand_perm = self.flip_perm(points.shape[-1], rng)
+        # first random permute
+        augmented = points[:,np.array(rand_perm)]
+        # then random flip
+        for axis, f in enumerate(rand_flip):
+            if f:
+                augmented[:,axis] = shape[axis] - augmented[:,axis] - 1
+        return augmented
+
+
+class FlipRot90(Flip):
+    """
+    flip and 90 degree rotation augmentation
+    """
+
+    def flip_perm(self, ndim:int , rng=None):
+        """
+        random augmentation of an array around axis
+        """
+        rng = _validate_rng(rng)
+        # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
+        axis = _flatten_axis(ndim, self.axis)
+        # list of all permutations
+        perms = tuple(subgroup_permutations(ndim, axis))
+        # list of all flips
+        flips = tuple(subgroup_flips(ndim, axis))
+        # random permutation and flip
+        rand_perm_ind = rng.randint(len(perms))
+        rand_flip_ind = rng.randint(len(flips))
+        rand_perm = perms[rand_perm_ind]
+        rand_flip = flips[rand_flip_ind]
+        return rand_flip, rand_perm 
 
 class Rotate(BaseTransform):
     """
     random rotations 
     """
-
-    def __init__(self, axis=None, order=1, mode = "reflect", workers = 1):
+    def __init__(self, axis=None, order=1, mode = "reflect", offset=None, use_gpu=False, workers = 1):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
         """
-        super().__init__(
-            default_kwargs=dict(
-                axis=axis,
-                order = order,
-                mode = mode,
-                workers=workers
-            ),
-            transform_func_array=transform_rotation
-        )
+        super().__init__() 
+        self.axis=axis,
+        self.order = order,
+        self.mode = mode,
+        self.workers=workers
+        self.offset=offset
+        self.use_gpu=use_gpu
+    
+    def random_mat_offset(self, shape, rng):
+        rng = _validate_rng(rng)
+        ndim = len(shape)
+        # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
+        axis = _flatten_axis(ndim, self.axis)
+        if self.offset is None:
+            offset = tuple(s // 2 for s in np.array(shape)[np.array(axis)])
+        else: 
+            offset = self.offset
 
+        M_rot = random_rotation_matrix(len(axis), rng)
+        M = np.identity(ndim)
+        M[np.ix_(np.array(axis), np.array(axis))] = M_rot
+        # as scipy.ndimage applies the offset *after* the affine matrix...
+        offset -= np.dot(M, offset)
+
+        return M, offset
+
+
+    def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1, use_gpu=False, workers = 1):
+        """
+        random rotation around axis
+        """
+
+
+        if len(axis) < img.ndim:
+            # flatten all axis that are not affected
+            img_flattened = _to_flat_sub_array(img, axis)
+            def _func(x, rng):
+                # rng.set_state(state)
+                return transform_rotation(x, rng=rng,
+                                        axis=None, offset = offset, order=order,
+                                        mode=mode,
+                                        workers = 1)
+
+            # copy rng, to be thread-safe
+            rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
+
+            if workers > 1:
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    res_flattened = np.stack(tuple(executor.map(_func, img_flattened, rng_flattened)))
+            else:
+                res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
+
+            return _from_flat_sub_array(res_flattened, axis, img.shape)
+        else:
+
+            if use_gpu:
+                if not img.ndim==3 and mode=='constant':
+                    raise ValueError('use_gpu=True only supported for img.ndim==3 and mode=="constant"')
+                from gputools.transforms import affine
+                inter = {0: "nearest",1:"linear"}
+                res = affine(img, M, interpolation=inter[order])
+            else:
+                res = ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
+            return res
 
 
 class Scale(BaseTransform):
