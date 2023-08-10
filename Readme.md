@@ -21,6 +21,8 @@ Currently implemented:
 * scaling, elastic deformation 
 * Gaussian noise, Intensity Shifts 
 
+etc...
+
 ## Installation
 
 `pip install augmend`
