@@ -130,16 +130,14 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
     if np.amin(grid) < 2:
         raise ValueError("grid should be at least 2x2 (but is %s)" % str(grid))
 
+    
     rng = _validate_rng(rng)
-
+    
     if len(axis) < img.ndim:
         # flatten all axis that are not affected
         img_flattened = _to_flat_sub_array(img, axis)
-        # state = rng.get_state()
-
+        
         def _func(x, rng):
-            # rng.set_state(state)
-            # print(rng.uniform(0,1))
             return transform_elastic(x, rng=rng,
                                      axis=None, grid=grid, amount=amount, order=order,
                                      workers=1,
@@ -148,6 +146,11 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
 
         # copy rng, to be thread-safe
         rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
+
+        # ensure that rng was stepped once
+        # https://github.com/stardist/augmend/issues/8
+        rng.uniform()
+
         if workers > 1:
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 res_flattened = np.stack(tuple(executor.map(_func, img_flattened, rng_flattened)))
@@ -158,10 +161,12 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
 
     else:
         # print(np.sum(rng.get_state()[1]))
+        
         dxs_coarse = list((a * rng.uniform(-1, 1, grid)).astype(np.float32) for a in amount)
+        # print(rng.uniform(-1, 1, 1))
         # make sure, the border dxs are pointing inwards, such that
         # we dont have out-of-border pixel accesses
-
+        
         for ax in range(img.ndim):
             ss = [slice(None) for i in range(img.ndim)]
             ss[ax] = slice(0, 1)

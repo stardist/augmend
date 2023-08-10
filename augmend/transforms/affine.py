@@ -273,7 +273,7 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
         raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
 
     rng = _validate_rng(rng)
-
+    
     if len(axis) < img.ndim:
         # flatten all axis that are not affected
         img_flattened = _to_flat_sub_array(img, axis)
@@ -292,7 +292,7 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
         res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
 
         # ensure that rng was stepped once
-        dummy = rng.uniform()
+        rng.uniform()
         
         return _from_flat_sub_array(res_flattened, axis, img.shape)
 
