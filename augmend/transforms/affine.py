@@ -219,7 +219,7 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
                 raise ValueError('use_gpu=True only supported for img.ndim==3 and mode=="constant"')
             from gputools.transforms import affine
             inter = {0: "nearest",1:"linear"}
-            res = affine(img,M, interpolation=inter[order])
+            res = affine(img, M, interpolation=inter[order])
         else:
             res = ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
         return res
@@ -259,9 +259,8 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     axis = _flatten_axis(img.ndim, axis)
 
     if np.isscalar(amount):
-        amount = (amount,amount) * len(axis)
-
-    if np.isscalar(amount[0]):
+        amount = ((amount,amount),) * len(axis)
+    elif np.isscalar(amount[0]):
         amount = (amount,) * len(axis)
 
     amount = np.asanyarray(amount)
@@ -406,6 +405,69 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
                 warnings.simplefilter("ignore", UserWarning)
                 res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode), img.shape,mode=mode)
         return res
+    
+    
+def transform_shift(img, rng=None, axis=None, amount=(-5,5), mode="constant", order=0, use_gpu=False, workers = 1):
+    """
+    random rotation around axis
+    """
+    rng = _validate_rng(rng)
+    # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
+    axis = _flatten_axis(img.ndim, axis)
+
+    if np.isscalar(amount):
+        amount = ((-amount,amount),) * len(axis)
+    elif np.isscalar(amount[0]):
+        amount = (amount,) * len(axis)
+
+    amount = np.asanyarray(amount)
+    
+    
+
+    if not len(axis) == len(amount):
+        raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
+
+    if len(axis) < img.ndim:
+        # flatten all axis that are not affected
+        img_flattened = _to_flat_sub_array(img, axis)
+        # state = rng.get_state()
+
+        def _func(x, rng):
+            # rng.set_state(state)
+            return transform_shift(x, rng=rng,
+                                      axis=None, 
+                                      amount=amount, order=order,
+                                      mode=mode,
+                                      workers = 1)
+
+        # copy rng, to be thread-safe
+        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
+
+        if workers > 1:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                res_flattened = np.stack(tuple(executor.map(_func, img_flattened, rng_flattened)))
+        else:
+            res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
+
+        return _from_flat_sub_array(res_flattened, axis, img.shape)
+    else:
+        shift = tuple(rng.uniform(lower, upper) for lower, upper in amount)
+        
+        
+        M = np.identity(img.ndim)
+        M[np.ix_(np.array(axis)),-1] = shift
+
+        # as scipy.ndimage applies the offset *after* the affine matrix...
+        if use_gpu:
+            if not img.ndim==3 and mode=='constant':
+                raise ValueError('use_gpu=True only supported for img.ndim==3 and mode=="constant"')
+            from gputools.transforms import affine
+            inter = {0: "nearest",1:"linear"}
+            res = affine(img,M, interpolation=inter[order])
+        else:
+            res = ndimage.shift(img, shift, order=order, mode=mode)
+        return res
+
 
 class FlipRot90(BaseTransform):
     """
@@ -505,3 +567,24 @@ class IsotropicScale(BaseTransform):
         )
 
         
+
+class Shift(BaseTransform):
+    """
+    shift augmentation
+    """
+
+    def __init__(self, axis=None, amount=(-5,5), order=0, mode="constant", use_gpu =False):
+        """
+        :param axis, tuple:
+            the axis along which to flip and rotate
+        """
+        super().__init__(
+            default_kwargs=dict(
+                axis=axis,
+                amount = amount,
+                order=order,
+                mode=mode,
+                use_gpu  = use_gpu
+            ),
+            transform_func=transform_shift
+        )

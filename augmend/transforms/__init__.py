@@ -1,5 +1,5 @@
 from .base import TransformTree, BaseTransform, ChoiceTransform, ConcatenateTransform, Identity, Lambda
-from .affine import FlipRot90, Flip, Rotate, Scale, IsotropicScale
+from .affine import FlipRot90, Flip, Rotate, Scale, IsotropicScale, Shift
 
 from .elastic import Elastic
 from .other import CutOut, GaussianBlur, DropPlanes, DropEdgePlanes
