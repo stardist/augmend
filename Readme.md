@@ -23,6 +23,10 @@ Currently implemented:
 
 ## Installation
 
+`pip install augmend`
+
+From source:
+
 `pip install git+https://github.com/stardist/augmend.git`
 
 ## Usage
