@@ -15,11 +15,17 @@ def additive_noise(x,rng, sigma):
         noise = rng.uniform(*sigma)
         return x + noise*rng.normal(0, 1,x.shape).astype(np.float32)
 
-def intensity_scale_shift(x, rng, scale, shift, axis):
+def intensity_scale_shift(x, rng, scale, shift, axis, invert=False):
     rng = _validate_rng(rng)
     axis = _flatten_axis(x.ndim, axis)
     size = tuple(1 if i in axis else s for i,s in enumerate(x.shape))
-    return x*rng.uniform(*scale, size = size).astype(np.float32)+rng.uniform(*shift, size = size).astype(np.float32)
+    s = rng.uniform(*scale, size = size).astype(np.float32)
+    t = rng.uniform(*shift, size = size).astype(np.float32)
+    if invert:
+        if not np.issubdtype(np.asarray(x).dtype, np.floating):
+            raise ValueError(f"invert=True expects float images in [0, 1], got dtype {np.asarray(x).dtype}")
+        return 1 - ((1 - x) * s + t)
+    return x * s + t
 
     
     
@@ -41,14 +47,16 @@ class IntensityScaleShift(BaseTransform):
     apply affine intensity shift
     """
 
-    def __init__(self, scale=(.8,1.2), shift = (-.1,.1), axis=None):
+    def __init__(self, scale=(.8,1.2), shift = (-.1,.1), axis=None, invert=False):
         """
         all dimensions that are given by axis will be shifted simultaneously 
         axis = None  -> all 
         axis = (0,1) -> axis 2,3... will be shifted independently 
+        invert = True -> scale and shift 1 - x instead of x, for float images in [0, 1]
+                         with bright background (e.g. brightfield, H&E), which then stays bright
         """
         super().__init__(
-            default_kwargs=dict(scale=scale, shift=shift, axis=axis),
+            default_kwargs=dict(scale=scale, shift=shift, axis=axis, invert=invert),
             transform_func=intensity_scale_shift)
 
 
