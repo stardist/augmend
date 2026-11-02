@@ -1,6 +1,6 @@
 import numpy as np
 import warnings
-from scipy.ndimage.filters import gaussian_filter 
+from scipy.ndimage import gaussian_filter
 from .base import BaseTransform
 from ..utils import _validate_rng, _flatten_axis
 
