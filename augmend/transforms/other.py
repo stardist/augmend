@@ -54,14 +54,14 @@ def drop_planes(x, rng, axis, width, n, val):
     ax = rng.choice(axis)
     
     if x.shape[ax]<width:
-        raise ValueError(f'cannot drop {n} planes since shape of input {x.shape} along axis {ax} is too small')
+        raise ValueError(f'cannot drop planes of width {width} since shape of input {x.shape} along axis {ax} is too small')
 
     x2 = x.copy().astype(np.float32)
 
     ss = [slice(None)]*x.ndim
     for _ in range(n):
         start = rng.randint(0,x.shape[ax]-width+1)
-        ss[ax] = slice(start, start+n)
+        ss[ax] = slice(start, start+width)
         x2[tuple(ss)] = rng.uniform(*val)
     return x2.astype(x.dtype, copy=False)
 
