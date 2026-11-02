@@ -36,5 +36,5 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install ".[test]"
       - if: matrix.torch
-        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        run: python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
       - run: python -m pytest -v

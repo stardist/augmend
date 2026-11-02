@@ -3,7 +3,7 @@ from .affine import FlipRot90, Flip, Rotate, Scale, IsotropicScale, Shift
 
 from .elastic import Elastic
 from .other import CutOut, GaussianBlur, DropPlanes, DropEdgePlanes
-from .intensity import AdditiveNoise, IntensityScaleShift
+from .intensity import AdditiveNoise, IntensityScaleShift, ColorJitter
 from .crop import RandomCrop
 from .stain import HEStaining
 
