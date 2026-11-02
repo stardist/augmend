@@ -25,7 +25,13 @@ etc...
 
 ## Installation
 
+Requires Python >= 3.10.
+
 `pip install augmend`
+
+With optional GPU support (via [`gputools`](https://github.com/maweigert/gputools)):
+
+`pip install "augmend[gpu]"`
 
 From source:
 
@@ -83,6 +89,10 @@ aug.add([FlipRot90(),FlipRot90()], probability=1)
 [X2,Y2] = aug([X,Y])
 
 ```
+
+### Random number generators
+
+By default, numpy's global random state is used, so `np.random.seed(...)` makes results reproducible. Alternatively, pass a `np.random.RandomState` or `np.random.Generator`, either when creating the pipeline (`Augmend(rng=...)`) or per call (`aug(x, rng=...)`). With PyTorch `DataLoader` workers, avoid passing a fixed `rng` when creating the pipeline, since every worker receives a copy of it and produces the same augmentations (see below).
 
 ### Augmenting in 3D
 
@@ -186,7 +196,7 @@ For `tf.data` pipelines, wrap the pipeline with `tf.numpy_function`.
 
 ### Transforming arrays on the GPU
 
-Some transforms (e.g. `Elastic` and `Scale`) allow to use the GPU for the transformation (which can be a bottleneck) via the keyword `use_gpu`. This requires additionally the installation of [`gputools`](https://github.com/maweigert/gputools)
+Some transforms (e.g. `Elastic` and `Scale`) allow to use the GPU for the transformation (which can be a bottleneck) via the keyword `use_gpu`. This requires additionally the installation of [`gputools`](https://github.com/maweigert/gputools), e.g. via `pip install "augmend[gpu]"`.
 
 
 
