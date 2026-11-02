@@ -18,7 +18,8 @@ classifiers = [
 
 [project.optional-dependencies]
 gpu = ["gputools"]
-test = ["pytest"]
+he = ["scikit-learn"]
+test = ["pytest", "scikit-learn"]
 
 [project.urls]
 Homepage = "https://github.com/stardist/augmend"

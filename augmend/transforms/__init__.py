@@ -5,5 +5,6 @@ from .elastic import Elastic
 from .other import CutOut, GaussianBlur, DropPlanes, DropEdgePlanes
 from .intensity import AdditiveNoise, IntensityScaleShift
 from .crop import RandomCrop
+from .stain import HEStaining
 
 

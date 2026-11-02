@@ -33,6 +33,10 @@ With optional GPU support (via [`gputools`](https://github.com/maweigert/gputool
 
 `pip install "augmend[gpu]"`
 
+With H&E stain augmentation (via `scikit-learn`):
+
+`pip install "augmend[he]"`
+
 From source:
 
 `pip install git+https://github.com/stardist/augmend.git`
@@ -193,6 +197,21 @@ loader = DataLoader(AugmentedDataset(x, y, aug), batch_size=4, num_workers=4)
 ```
 
 For `tf.data` pipelines, wrap the pipeline with `tf.numpy_function`.
+
+### Histology (H&E) images
+
+`HEStaining` estimates the hematoxylin and eosin stain vectors of an RGB image (channels last, `uint8` or float in [0, 1]) and randomly perturbs them and the stain amounts. Tiles with too little tissue are returned unchanged. For images with a bright background, `IntensityScaleShift(invert=True)` scales and shifts `1 - x`, so the background stays bright:
+
+```python
+from augmend import Augmend, FlipRot90, HEStaining, Identity, IntensityScaleShift
+
+aug = Augmend()
+aug.add([FlipRot90(axis=(0, 1)), FlipRot90(axis=(0, 1))])
+aug.add([HEStaining(amount_matrix=0.15, amount_stains=0.4), Identity()])
+aug.add([IntensityScaleShift(scale=(0.8, 1.2), shift=(-0.1, 0.1), axis=(0, 1), invert=True), Identity()])
+
+img2, lbl2 = aug([img, lbl])  # img: float RGB in [0, 1] of shape (H, W, 3)
+```
 
 ### Transforming arrays on the GPU
 
