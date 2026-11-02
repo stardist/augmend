@@ -1,6 +1,6 @@
 from .base import BaseTransform
 from ..utils import _validate_rng, _flatten_axis
-from typing import List, Sequence, Union
+from collections.abc import Sequence
 
 def random_crop(x, rng, size, axis):
     rng = _validate_rng(rng)
@@ -23,7 +23,7 @@ class RandomCrop(BaseTransform):
     apply random crop
     """
 
-    def __init__(self, size: Sequence[int]=(200,200), axis: Union[int, List[int]]=None):
+    def __init__(self, size: Sequence[int]=(200,200), axis: int | Sequence[int] | None = None):
         """
         all dimensions that are given by axis will be cropped to a dimension of given size
         axis = None  -> all 

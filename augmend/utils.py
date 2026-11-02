@@ -2,10 +2,8 @@
 
 mweigert@mpi-cbg.de
 """
-from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
 import itertools
-import six
 from functools import partial
 
 def _get_global_rng():
@@ -24,7 +22,7 @@ class LeafTuple(tuple):
     we have to add tuples as a different type - as a LeafTuple
     """
     def __repr__(self):
-        return "%s%s" % (self.__class__.__name__, super().__repr__())
+        return f"{self.__class__.__name__}{super().__repr__()}"
 
 def _is_leaf_node(x):
     """defines which nodes are considered a terminal leaf node
@@ -36,7 +34,7 @@ def _wrap_leaf_node(x):
     return (x,) if _is_leaf_node(x) else x
 
 def _raise(e):
-    if isinstance(e, six.string_types):
+    if isinstance(e, str):
         e = ValueError(e)
     raise e
 
@@ -68,7 +66,7 @@ def _all_of_type(iterable, t):
 def _normalized_weights(weights,n):
     if weights is None:
         weights = [1] * n
-    len(weights) == n or _raise(ValueError("must be %d weights" % n))
+    len(weights) == n or _raise(ValueError(f"must be {n} weights"))
     all(np.isscalar(w) and w>=0 for w in weights) or _raise(ValueError("all weights must be non-negative numbers"))
     weights = np.asanyarray(weights)
     np.sum(weights) > 0 or _raise(ValueError("not all weights can be 0"))
@@ -122,7 +120,7 @@ def map_trees(func, x):
     """
     all_leaves = (_is_leaf_node(x) and _is_leaf_node(func))
 
-    (all_leaves or len(func) == len(x)) or _raise(ValueError("tree structures not compatible %s" % str(x)))
+    (all_leaves or len(func) == len(x)) or _raise(ValueError(f"tree structures not compatible {x}"))
 
     return func(x) if all_leaves \
         else type(x)(map(map_trees, func, x))
@@ -146,7 +144,7 @@ def zip_trees(*xs):
     >>>((LeafTuple(('A', 1)), LeafTuple(('B', 2))), LeafTuple(('C', 3)))
 
     """
-    all(len(xs[0]) == l for l in map(len, xs)) or _raise(ValueError("tree structures not compatible %s" % str(xs)))
+    all(len(xs[0]) == n for n in map(len, xs)) or _raise(ValueError(f"tree structures not compatible {xs}"))
 
     return type(xs[0])(LeafTuple(t) if all(_is_leaf_node(_t) for _t in t) \
                            else zip_trees(*t) for t in zip(*xs))
@@ -176,7 +174,7 @@ def _flatten_axis(ndim, axis=None):
         elif isinstance(axis, tuple):
             axis = list(axis)
         if max(axis) > max(all_axis):
-            raise ValueError("axis = %s too large" % max(axis))
+            raise ValueError(f"axis = {max(axis)} too large")
         axis = tuple(list(all_axis[axis]))
     return axis
 
@@ -216,7 +214,7 @@ def create_test_pattern(shape=(128,128), dtype=np.uint16, n_samples=None, grid_w
     if np.isscalar(grid_w):
         grid_w = (int(grid_w),)*2
     if not (len(grid_w)==2 and all([isinstance(g, int) for g in grid_w])):
-        raise ValueError(f"grid {grid} must be a pair of integers")
+        raise ValueError(f"grid_w {grid_w} must be a pair of integers")
 
     w = np.random.randint(grid_w[0], grid_w[1]+1)
         
@@ -241,7 +239,7 @@ def plot_augmented(transform, x, n = 4, rng = None, num=None, **kwargs):
     xs = flatten_tree(x)
     nx = len(xs)
     ys = tuple((x,) + tuple(transform(x, rng=rng) for _ in range(n)) for x in xs)
-    titles = ("original",) + tuple("Augment_%s"%i for i in range(n))
+    titles = ("original",) + tuple(f"Augment_{i}" for i in range(n))
     fig = plt.figure(num=num, figsize=(2+1*n,2+1*nx))
     fig.subplots_adjust(wspace = 0.05, hspace = 0.05, left = .05, top = 0.95, bottom = 0.05, right = 0.95)
     fig.clf()

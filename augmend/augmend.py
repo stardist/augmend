@@ -2,17 +2,14 @@
 
 mweigert@mpi-cbg.de
 """
-from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
-from six import add_metaclass
 from abc import ABCMeta, abstractmethod
 
 from .utils import _raise, _is_leaf_node, _wrap_leaf_node, _normalized_weights, _get_global_rng
 from .transforms import TransformTree
 
 
-@add_metaclass(ABCMeta)
-class BaseAugmend(object):
+class BaseAugmend(metaclass=ABCMeta):
     def __init__(self, *transforms, rng=None):
         """
         :param rng, random_number_generator:
@@ -52,7 +49,7 @@ class BaseAugmend(object):
         return x[0] if (wrapped and len(x)==1 and _is_leaf_node(x[0])) else x
 
     def __repr__(self):
-        return "%s%s"%(self.__class__.__name__,  self._transforms)
+        return f"{self.__class__.__name__}{self._transforms}"
         # return "%s%s, w=%s"%(self.__class__.__name__,  self.transforms, self.weights)
 
     def __len__(self):
@@ -88,8 +85,8 @@ class Augmend(BaseAugmend):
 
     def __repr__(self):
         return "\n".join(
-            map(lambda t: "%d (p=%.2f): %s" % (1+t[0], t[1], t[2]),
-                zip(range(len(self)), self._probabilities, self._transforms)))
+            f"{i + 1} (p={p:.2f}): {t}"
+            for i, (p, t) in enumerate(zip(self._probabilities, self._transforms)))
 
     def add(self, transform, probability=1.0):
         """

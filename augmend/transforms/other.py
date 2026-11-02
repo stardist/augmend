@@ -22,7 +22,7 @@ def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None, use_gpu
         amount = (amount,) * len(axis)
 
     if not (len(amount) == len(axis) and all(len(am)==2 for am in amount)):
-        raise ValueError("misformed amount:  {amount}".format(amount=amount))
+        raise ValueError(f"misformed amount:  {amount}")
         
     amount = np.asanyarray(amount)
     assert len(axis) == len(amount)
@@ -75,7 +75,7 @@ def drop_edge_planes(x, rng, axis, width,  val):
     ax = rng.choice(axis)
     
     if x.shape[ax]<width:
-        raise ValueError(f'cannot drop {n} planes since shape of input {x.shape} along axis {ax} is too small')
+        raise ValueError(f'cannot drop {width} edge planes since shape of input {x.shape} along axis {ax} is too small')
 
     x2 = x.copy().astype(np.float32)
 
@@ -120,7 +120,7 @@ class CutOut(BaseTransform):
         if np.isscalar(width[0]) and len(width)==2:
             width = (width,) * len(axis)
         if not (len(width) == len(axis) and all(len(ws)==2 for ws in width)):
-            raise ValueError("misformed amount:  {width}".format(width=width))
+            raise ValueError(f"misformed amount:  {width}")
 
 
         if np.isscalar(n):

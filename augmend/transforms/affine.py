@@ -7,7 +7,7 @@ from copy import deepcopy
 
 
 from .base import BaseTransform
-from ..utils import _raise, _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array, pad_to_shape
+from ..utils import _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array, pad_to_shape
 
 def subgroup_permutations(ndim, axis=None):
     """
@@ -86,8 +86,6 @@ def iter_fliprot90(img, axis = None, copy = True, return_mapping = False):
     # list of all flips
     flips = tuple(subgroup_flips(img.ndim, axis))
 
-    perms_inv, flips_inv = perms[::-1], flips[::-1]
-
     def _inverse_perm(perm):
         a = tuple(range(img.ndim))
         return tuple(perm.index(_a) for _a in a)
@@ -133,9 +131,6 @@ def transform_flip(img, rng=None, axis=None):
 
     # flatten the axis, e.g. (-2,-1) -> (2,3) for the different array shapes
     axis = _flatten_axis(img.ndim, axis)
-
-    # list of all permutations
-    perms = tuple(subgroup_permutations(img.ndim, axis))
 
     # list of all flips
     flips = tuple(subgroup_flips(img.ndim, axis))
@@ -266,10 +261,10 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     amount = np.asanyarray(amount)
 
     if not img.ndim >= len(axis):
-        raise ValueError("dimension of image (%s) < length of axis (%s)" % (img.ndim, len(axis)))
+        raise ValueError(f"dimension of image ({img.ndim}) < length of axis ({len(axis)})")
 
     if not len(axis) == len(amount):
-        raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
+        raise ValueError(f"length of axis ({len(axis)}) != length of amount ({len(amount)})")
 
     rng = _validate_rng(rng)
     
@@ -356,7 +351,7 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
     amount = np.asanyarray(amount)
 
     if not img.ndim >= len(axis):
-        raise ValueError("dimension of image (%s) < length of axis (%s)" % (img.ndim, len(axis)))
+        raise ValueError(f"dimension of image ({img.ndim}) < length of axis ({len(axis)})")
 
     if len(amount)!=2:
         raise ValueError("amount should be a tuple of length 2!")
@@ -381,7 +376,7 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
         res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
 
         # ensure that rng was stepped once
-        dummy = rng.uniform()
+        rng.uniform()
         
         return _from_flat_sub_array(res_flattened, axis, img.shape)
 
@@ -425,7 +420,7 @@ def transform_shift(img, rng=None, axis=None, amount=(-5,5), mode="constant", or
     
 
     if not len(axis) == len(amount):
-        raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
+        raise ValueError(f"length of axis ({len(axis)}) != length of amount ({len(amount)})")
 
     if len(axis) < img.ndim:
         # flatten all axis that are not affected

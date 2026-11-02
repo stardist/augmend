@@ -4,7 +4,7 @@ from ..utils import _raise, _normalized_weights, _all_of_type, map_single_func_t
 
 
 
-class TransformTree(object):
+class TransformTree:
     def __init__(self, tree):
         if isinstance(tree, BaseTransform):
             tree = (tree,)
@@ -26,10 +26,10 @@ class TransformTree(object):
 
     def __repr__(self):
         # return "%s(%s)"%(self.__class__.__name__, str(self.tree))
-        return "%s" % (str(self.tree[0] if len(self.tree) == 1 else self.tree))
+        return str(self.tree[0] if len(self.tree) == 1 else self.tree)
 
 
-class BaseTransform(object):
+class BaseTransform:
     """
     base class for an augmentation action
     """
@@ -70,7 +70,7 @@ class ConcatenateTransform(BaseTransform):
         )
 
     def __repr__(self):
-        return "%s%s" % (self.__class__.__name__, self.transforms)
+        return f"{self.__class__.__name__}{self.transforms}"
 
 
 class ChoiceTransform(BaseTransform):
@@ -85,7 +85,7 @@ class ChoiceTransform(BaseTransform):
         )
 
     def __repr__(self):
-        return "%s%s" % (self.__class__.__name__, self.transforms)
+        return f"{self.__class__.__name__}{self.transforms}"
         # return "%s%s, w=%s"%(self.__class__.__name__,  self.transforms, self.weights)
 
 

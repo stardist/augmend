@@ -2,7 +2,6 @@
 
 mweigert@mpi-cbg.de
 """
-from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
 from augmend import Augmend, Elastic, FlipRot
 
@@ -68,5 +67,5 @@ if __name__ == '__main__':
         for j in range(len(_imgs)):
             w.transform.setPos(j)
             w.glWidget.refresh()
-            w.saveFrame("_plots/out%d_%03d.png"%(i,j))
+            w.saveFrame(f"_plots/out{i}_{j:03d}.png")
 

@@ -23,7 +23,7 @@ if __name__ == '__main__':
                              rng=np.random.RandomState(0),
                              workers=workers)
 
-    print("workers = %s:\t%.4f s" % (workers, time() - t))
+    print(f"workers = {workers}:\t{time() - t:.4f} s")
 
     t = time()
     workers = 16
@@ -31,6 +31,6 @@ if __name__ == '__main__':
                              rng=np.random.RandomState(0),
                              workers=workers)
 
-    print("workers = %s:\t%.4f s" % (workers, time() - t))
+    print(f"workers = {workers}:\t{time() - t:.4f} s")
 
     assert np.allclose(out1, out2)

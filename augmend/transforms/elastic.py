@@ -5,7 +5,7 @@ from scipy import ndimage
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from .base import BaseTransform
-from ..utils import _raise, _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array
+from ..utils import _validate_rng, _flatten_axis, _from_flat_sub_array, _to_flat_sub_array
 
 
 def abspath(myPath):
@@ -50,8 +50,8 @@ def _zoom_and_transform_gpu(img, dxs_coarse, order):
                      np.float32: ["-D", "TYPENAME=float", "-D", "READ_IMAGE=read_imagef"]}
 
     dtype = img.dtype.type
-    if not dtype in options_types:
-        raise ValueError("type %s not supported! Available: %s" % (dtype, str(list(options_types.keys()))))
+    if dtype not in options_types:
+        raise ValueError(f"type {dtype} not supported! Available: {list(options_types)}")
 
     img_im = OCLImage.from_array(img)
     dxs_im = tuple(OCLImage.from_array(dx) for dx in dxs_coarse)
@@ -60,7 +60,7 @@ def _zoom_and_transform_gpu(img, dxs_coarse, order):
     prog = OCLProgram(abspath("kernels/elastic.cl"),
                       build_options=order_defines[order] + options_types[dtype])
 
-    prog.run_kernel("zoom_and_transform%s"%img.ndim,
+    prog.run_kernel(f"zoom_and_transform{img.ndim}",
                     res_g.shape[::-1], None,
                     img_im, *dxs_im, res_g.data)
     return res_g.get().astype(dtype, copy = False)
@@ -119,16 +119,16 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
     amount = np.asanyarray(amount)
 
     if not img.ndim >= len(axis):
-        raise ValueError("dimension of image (%s) < length of axis (%s)" % (img.ndim, len(axis)))
+        raise ValueError(f"dimension of image ({img.ndim}) < length of axis ({len(axis)})")
 
     if not len(axis) == len(grid):
-        raise ValueError("length of axis (%s) != length of grid (%s)" % (len(axis), len(grid)))
+        raise ValueError(f"length of axis ({len(axis)}) != length of grid ({len(grid)})")
 
     if not len(axis) == len(amount):
-        raise ValueError("length of axis (%s) != length of amount (%s)" % (len(axis), len(amount)))
+        raise ValueError(f"length of axis ({len(axis)}) != length of amount ({len(amount)})")
 
     if np.amin(grid) < 2:
-        raise ValueError("grid should be at least 2x2 (but is %s)" % str(grid))
+        raise ValueError(f"grid should be at least 2x2 (but is {grid})")
 
     
     rng = _validate_rng(rng)
