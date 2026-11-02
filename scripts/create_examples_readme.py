@@ -3,10 +3,9 @@
 mweigert@mpi-cbg.de
 """
 import numpy as np
-from imageio import imread
 from tifffile import imread
 import matplotlib.pyplot as plt
-from augmend import Augmend, Elastic, FlipRot90, Scale, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity, DropEdgePlanes
+from augmend import Elastic, FlipRot90, Scale, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity, DropEdgePlanes
 from collections import OrderedDict
 from csbdeep.utils import normalize
 

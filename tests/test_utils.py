@@ -2,7 +2,6 @@
 
 mweigert@mpi-cbg.de
 """
-import numpy as np
 from augmend.utils import map_single_func_tree, map_trees, zip_trees, LeafTuple
 
 

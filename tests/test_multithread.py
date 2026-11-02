@@ -1,7 +1,6 @@
 import numpy as np
 from augmend import Augmend, Identity, FlipRot90, Elastic, Scale, AdditiveNoise
 from concurrent.futures import ThreadPoolExecutor
-import argparse
 import pytest
 
 @pytest.mark.parametrize('ndim', (2,3))

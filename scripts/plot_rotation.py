@@ -1,8 +1,5 @@
-import numpy as np
-from scipy.misc import ascent
 from augmend.transforms.affine import transform_rotation
 from augmend.utils import create_test_pattern
-from time import time
 
 if __name__ == '__main__':
     img = create_test_pattern()

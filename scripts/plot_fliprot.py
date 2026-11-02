@@ -4,7 +4,7 @@ mweigert@mpi-cbg.de
 """
 import numpy as np
 
-from augmend import FlipRot90, Elastic, Identity
+from augmend import FlipRot90, Identity
 
 if __name__ == '__main__':
     x = np.zeros((100, 111), np.float32)
