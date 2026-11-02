@@ -17,3 +17,6 @@ dist/
 *.png
 *.so
 *.tfevents*
+
+# Local implementation plans
+/plans/
