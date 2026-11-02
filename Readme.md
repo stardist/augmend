@@ -6,7 +6,7 @@ Augmentation library tailored towards the needs of microscopy images analysis.
 
 * provides a simple yet flexible augmentation pipeline without too many bells and whistles 
 * supports 2D and 3D images
-* operates on numpy arrays and can interface with keras/tensorflow generators  
+* operates on numpy arrays and works with any data loader (e.g. PyTorch `Dataset`)
 * offers optional GPU acceleration for compute intensive augmentions via OpenCL     
 
 
@@ -144,50 +144,45 @@ aug.add([FlipRot90(axis=(1, 2)),
          FlipRot90(axis=(1, 2))],
         probability=0.9)
 
-aug_gen = aug.flow(data_gen)
+aug_gen = aug.flow(data_gen())
 
 # get the results as tuple
 res = next(aug_gen)
 ```
-### Usage with `tensorflow` data pipelines
+### Usage with PyTorch
 
-`Augmend.tf_map` returns a `tensorflow` function that can be applied to an existing `tf.data` pipeline via `dataset.map()`: 
+Call the pipeline inside `Dataset.__getitem__`. Drawing the seed from torch gives each `DataLoader` worker and epoch different augmentations, and `torch.manual_seed` makes them reproducible:
 
 ```python
 import numpy as np
-import tensorflow as tf
-from augmend import Augmend
-from augmend.utils import create_test_pattern
-
-y = create_test_pattern(n_samples=16, shape=(512,512), grid_w=(3,10)).astype(np.int16)
-x = (y + 50*np.random.normal(0,1,y.shape)).astype(np.float32)
+import torch
+from torch.utils.data import DataLoader, Dataset
+from augmend import Augmend, Elastic, FlipRot90
 
 aug = Augmend()
+aug.add([FlipRot90(axis=(0, 1)), FlipRot90(axis=(0, 1))])
 aug.add([Elastic(axis=(0, 1), amount=5, order=1),
          Elastic(axis=(0, 1), amount=5, order=0)])
-    
-dataset = tf.data.Dataset.from_tensor_slices((x,y))
 
-dataset = dataset.map(aug.tf_map, num_parallel_calls=tf.data.AUTOTUNE)
 
-x2, y2 = next(iter(dataset))
+class AugmentedDataset(Dataset):
+    def __init__(self, x, y, aug):
+        self.x, self.y, self.aug = x, y, aug
 
+    def __len__(self):
+        return len(self.x)
+
+    def __getitem__(self, i):
+        rng = np.random.RandomState(torch.randint(0, 2**32, ()).item())
+        x, y = self.aug([self.x[i], self.y[i]], rng=rng)
+        # flips return views with negative strides, which torch.from_numpy rejects
+        return torch.from_numpy(np.ascontiguousarray(x)), torch.from_numpy(np.ascontiguousarray(y))
+
+
+loader = DataLoader(AugmentedDataset(x, y, aug), batch_size=4, num_workers=4)
 ```
 
-### Usage with pytorch Dataset
-
-`Augmend.torch_wrap` will wrap an existing `torch` dataset:  
-
-```python
-from torch.utils.data import TensorDataset
-
-data = TensorDataset(torch.tensor(x),torch.tensor(y))
-
-data = aug.torch_wrap(data)
-
-x2, y2 = data[0]
-
-```
+For `tf.data` pipelines, wrap the pipeline with `tf.numpy_function`.
 
 ### Transforming arrays on the GPU
 

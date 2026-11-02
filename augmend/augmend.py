@@ -114,30 +114,6 @@ class Augmend(BaseAugmend):
         return map(self, iterable)
 
 
-    def tf_map(self, *args):
-        """provides a function to be used with tf.data pipelines 
-
-        # Example: 
-
-        aug = Augmend()
-        aug.add([Elastic(axis=(0, 1), amount=5, order=1),
-                Elastic(axis=(0, 1), amount=5, order=0)])
-    
-        dataset = tf.data.Dataset.from_tensor_slices((x,y))
-
-        gen = dataset.map(aug.tf_map, num_parallel_calls=8).batch(16)
-        """
-        import tensorflow as tf 
-        def _func(*args):
-            return self(args)
-        return tf.numpy_function(_func,list(args),tuple(a.dtype for a in args))
-
-    def torch_wrap(self, dataset):
-        """
-        returns the augmented dataset 
-        """
-        from .torch_utils import _AugDataWrapper
-        return _AugDataWrapper(self, dataset)
     
 
 class Choice(BaseAugmend):
