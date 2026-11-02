@@ -12,10 +12,9 @@ from .transforms import TransformTree
 class BaseAugmend(metaclass=ABCMeta):
     def __init__(self, *transforms, rng=None):
         """
-        :param rng, random_number_generator:
+        :param rng, np.random.RandomState or np.random.Generator:
+            if None, numpy's global RandomState of the calling process is used at call time
         """
-        if rng is None or rng is np.random:
-            rng = _get_global_rng()
         self._rng = rng
         self._transforms = []
 
@@ -33,18 +32,32 @@ class BaseAugmend(metaclass=ABCMeta):
             callable(transform) or _raise(ValueError("transform needs to be callable with signature (data, rng)"))
         self._transforms.append(transform)
 
+    @property
+    def _rng(self):
+        # resolved on access, so that a pipeline sent to another process
+        # (e.g. a spawned DataLoader worker) uses that process' global RNG
+        return _get_global_rng() if self._rng_init is None else self._rng_init
+
+    @_rng.setter
+    def _rng(self, rng):
+        self._rng_init = None if rng is np.random else rng
+
     @abstractmethod
-    def _call(self, x):
+    def _call(self, x, rng):
         pass
 
     def __call__(self, x, rng=None):
-        if rng is not None:
-            self._rng = rng
+        """
+        :param rng, np.random.RandomState or np.random.Generator:
+            used for this call only (default: the pipeline's rng)
+        """
+        if rng is None:
+            rng = self._rng
         # wrap
         wrapped = _is_leaf_node(x)
         x = _wrap_leaf_node(x)
         # actual computation
-        x = self._call(x)
+        x = self._call(x, rng)
         # unwrap
         return x[0] if (wrapped and len(x)==1 and _is_leaf_node(x[0])) else x
 
@@ -99,12 +112,12 @@ class Augmend(BaseAugmend):
         super().add(transform)
         self._probabilities.append(probability)
 
-    def _call(self, x):
+    def _call(self, x, rng):
         """apply augmentation chain to arrays/images
         """
         for trans, prob in zip(self._transforms, self._probabilities):
-            if self._rng.uniform(0,1) <= prob:
-                x = trans(x, rng=self._rng)
+            if rng.uniform(0,1) <= prob:
+                x = trans(x, rng=rng)
         return x
 
 
@@ -121,6 +134,6 @@ class Choice(BaseAugmend):
         super().__init__(*transforms)
         self._weights = _normalized_weights(weights,len(transforms))
 
-    def _call(self, x):
-        trans = self._transforms[self._rng.choice(len(self),p=self._weights)]
-        return trans(x, rng=self._rng)
+    def _call(self, x, rng):
+        trans = self._transforms[rng.choice(len(self),p=self._weights)]
+        return trans(x, rng=rng)

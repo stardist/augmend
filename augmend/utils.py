@@ -10,8 +10,11 @@ def _get_global_rng():
     return np.random.random.__self__
 
 def _validate_rng(rng):
+    """Return a RandomState: numpy's global one for None, a newly seeded one for a Generator."""
     if rng is None or rng is np.random:
-        rng = _get_global_rng()
+        return _get_global_rng()
+    if isinstance(rng, np.random.Generator):
+        return np.random.RandomState(rng.integers(0, 2**32))
     return rng
 
     

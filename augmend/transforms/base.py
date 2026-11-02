@@ -1,7 +1,11 @@
 import numpy as np
 from functools import reduce
-from ..utils import _raise, _normalized_weights, _all_of_type, map_single_func_tree, zip_trees
+from ..utils import _raise, _normalized_weights, _all_of_type, _validate_rng, map_single_func_tree, zip_trees
 
+
+
+def _identity(x, rng=None):
+    return x
 
 
 class TransformTree:
@@ -11,16 +15,14 @@ class TransformTree:
         _all_of_type(tree, BaseTransform) or _raise(ValueError("not a tree of transforms"))
         self.tree = tree
 
-    def __call__(self, x, rng=np.random):
-        # get a deterministic yet random new initial state
-        rand_state = np.random.RandomState(rng.randint(0,2**31-1)).get_state()
-        
+    def __call__(self, x, rng=None):
+        # every leaf transform gets its own RandomState with the same seed,
+        # such that coupled transforms (e.g. for image/label pairs) match
+        seed = _validate_rng(rng).randint(0, 2**31 - 1)
+
         def _apply(leaf):
             trans, _x = leaf
-            # make sure that every transform has its own RandomState
-            rng = np.random.RandomState()
-            rng.set_state(rand_state)
-            return trans(_x, rng=rng)
+            return trans(_x, rng=np.random.RandomState(seed))
 
         return map_single_func_tree(_apply, zip_trees(self.tree, x))
 
@@ -66,8 +68,11 @@ class ConcatenateTransform(BaseTransform):
         self.transforms = tuple(transforms)
         super().__init__(
             default_kwargs=dict(),
-            transform_func=lambda x, rng: reduce(lambda x, f: f(x, rng), self.transforms, x)
+            transform_func=self._concatenate
         )
+
+    def _concatenate(self, x, rng=None):
+        return reduce(lambda x, f: f(x, rng), self.transforms, x)
 
     def __repr__(self):
         return f"{self.__class__.__name__}{self.transforms}"
@@ -79,10 +84,12 @@ class ChoiceTransform(BaseTransform):
         self.weights = _normalized_weights(weights, len(transforms))
         super().__init__(
             default_kwargs=dict(),
-            transform_func=(
-                lambda x, rng: self.transforms[rng.choice(len(self.transforms), p=self.weights)](x, rng)
-            )
+            transform_func=self._choose
         )
+
+    def _choose(self, x, rng=None):
+        rng = _validate_rng(rng)
+        return self.transforms[rng.choice(len(self.transforms), p=self.weights)](x, rng)
 
     def __repr__(self):
         return f"{self.__class__.__name__}{self.transforms}"
@@ -97,15 +104,19 @@ class Identity(BaseTransform):
     def __init__(self):
         super().__init__(
             default_kwargs=dict(),
-            transform_func=lambda x, rng: x
+            transform_func=_identity
         )
 
 
 
 class Lambda(BaseTransform):
-    def __init__(self, func=lambda x, rng: x):
+    """
+    Apply func(x, rng). The pipeline can only be pickled (e.g. for DataLoader workers) if func can.
+    """
+
+    def __init__(self, func=None):
         super().__init__(
             default_kwargs=dict(),
-            transform_func=func
+            transform_func=_identity if func is None else func
         )
         
