@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
+from scipy.ndimage import gaussian_filter
 
-from augmend import DropPlanes
+from augmend import DropPlanes, GaussianBlur
+from augmend.transforms.other import _gaussian_filter
 
 
 def _dropped_rows(n, width, seed):
@@ -28,3 +30,19 @@ def test_drop_planes_multiple(n, width, seed):
     # blocks may overlap, but every block has exactly `width` planes
     assert width <= len(rows) <= n * width
     assert all(r >= width for r in _runs(rows))
+
+
+@pytest.mark.parametrize("shape", ((64,), (32, 32), (8, 16, 16), (16, 16, 3)))
+@pytest.mark.parametrize("dtype", (np.uint8, np.float32, np.float64))
+def test_gaussian_filter_matches_scipy(shape, dtype):
+    rng = np.random.RandomState(0)
+    x = (255 * rng.rand(*shape)).astype(dtype)
+    sigmas = tuple(rng.uniform(0, 3, len(shape)))
+    y = _gaussian_filter(x, sigmas, mode="reflect")
+    assert y.dtype == x.dtype and y.flags["C_CONTIGUOUS"]
+    assert np.array_equal(y, gaussian_filter(x, sigmas, mode="reflect"))
+
+
+def test_gaussian_blur_scalar_amount():
+    x = np.random.RandomState(0).rand(16, 16).astype(np.float32)
+    assert np.allclose(GaussianBlur(amount=2)(x), gaussian_filter(x, 2))

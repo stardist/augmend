@@ -6,6 +6,23 @@ from ..utils import _validate_rng, _flatten_axis
 
 
 
+def _gaussian_filter(img, sigmas, mode):
+    """
+    Same as scipy.ndimage.gaussian_filter(img, sigmas, mode=mode), but with input and output in padded buffers:
+    power-of-two strides (e.g. 64x128x128 patches) cause cache conflicts in scipy's per-axis passes.
+    """
+    if img.ndim < 2:
+        return gaussian_filter(img, sigmas, mode=mode)
+
+    def _padded_empty():
+        return np.empty(img.shape[:-1] + (img.shape[-1] + max(1, 16 // img.itemsize),), img.dtype)[..., :img.shape[-1]]
+
+    x, out = _padded_empty(), _padded_empty()
+    x[...] = img
+    gaussian_filter(x, sigmas, mode=mode, output=out)
+    return np.ascontiguousarray(out)
+
+
 def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None, use_gpu=False):
     """
     amount: scalar, or pair (min, max) or tuple of pairs ((min_1, max_1), (min_2, max_2),
@@ -17,7 +34,7 @@ def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None, use_gpu
     rng = _validate_rng(rng)
 
     if np.isscalar(amount):
-        amount = (amount,amount) * len(axis)
+        amount = ((amount, amount),) * len(axis)
     if np.isscalar(amount[0]) and len(amount)==2:
         amount = (amount,) * len(axis)
 
@@ -41,7 +58,7 @@ def blur(img, rng, amount = ((1,5),(2,4)), mode = "reflect", axis= None, use_gpu
         sigmas_all = tuple(max(1e-8,s) for s in sigmas_all)
         y = blur(img, sigmas_all)
     else:
-        y = gaussian_filter(img, sigmas_all, mode=mode)
+        y = _gaussian_filter(img, sigmas_all, mode=mode)
     return y
 
 
