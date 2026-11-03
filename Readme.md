@@ -15,13 +15,7 @@ Augmentation library tailored towards the needs of microscopy images analysis.
 
 ![](imgs/augmerino.png) -
 
-Currently implemented:
-
-* flips and 90 degree rotations
-* scaling, elastic deformation 
-* Gaussian noise, Intensity Shifts 
-
-etc...
+Currently implemented: flips and 90 degree rotations, rotations, scaling, shifts, elastic deformations, crops, intensity changes, noise, blur, cutouts, color jitter and H&E stain augmentation (see [Available augmentations](#available-augmentations)).
 
 ## Installation
 
@@ -223,9 +217,32 @@ Some transforms (e.g. `Elastic` and `Scale`) allow to use the GPU for the transf
 
 
 
-### Available augmentations 
+### Available augmentations
 
-![](imgs/examples.png)
+Each example shows the input followed by three random outputs, created with [`scripts/create_examples_readme.py`](scripts/create_examples_readme.py) from the example images in `augmend.data` (`test_image_nuclei_2d()` and `test_image_he_2d()`, as in `stardist.data`). Parameters not shown use their defaults.
 
+| Transform | Description | Example |
+| --- | --- | --- |
+| **Geometric** | | |
+| `FlipRot90()` | Random flip and axis permutation (90 degree rotation) of the axes in `axis` | <img src="imgs/examples/fliprot90.png" width="400"> |
+| `Flip()` | Random flip of the axes in `axis` | <img src="imgs/examples/flip.png" width="400"> |
+| `Rotate()` | Rotation by a random angle (random rotation matrix in nD) | <img src="imgs/examples/rotate.png" width="400"> |
+| `Scale(amount=(0.5, 2))` | Zoom by a random factor per axis, keeping the image shape | <img src="imgs/examples/scale.png" width="400"> |
+| `IsotropicScale(amount=(0.5, 2))` | Zoom by the same random factor for all axes | <img src="imgs/examples/isotropic_scale.png" width="400"> |
+| `Shift(amount=(-30, 30))` | Shift by a random number of pixels per axis | <img src="imgs/examples/shift.png" width="400"> |
+| `Elastic(grid=5, amount=8)` | Random displacements (at most `amount` pixels) on a coarse grid of `grid` points per axis, interpolated to all pixels | <img src="imgs/examples/elastic.png" width="400"> |
+| `RandomCrop(size=(96, 96))` | Crop of the given size at a random position | <img src="imgs/examples/random_crop.png" width="400"> |
+| **Intensity** | | |
+| `IntensityScaleShift(scale=(0.5, 2), shift=(-0.2, 0.2))` | `x * s + t` with random `s` and `t`; axes not in `axis` (e.g. channels) get independent values | <img src="imgs/examples/intensity_scale_shift.png" width="400"> |
+| `AdditiveNoise(sigma=0.1)` | Additive Gaussian noise; `sigma` is the standard deviation or a range to draw it from | <img src="imgs/examples/additive_noise.png" width="400"> |
+| `GaussianBlur(amount=(1, 4))` | Gaussian blur with a random sigma per axis | <img src="imgs/examples/gaussian_blur.png" width="400"> |
+| **Masking** | | |
+| `CutOut(width=(10, 30), n=(2, 6))` | Set a random number of boxes with random size to `val` | <img src="imgs/examples/cutout.png" width="400"> |
+| `DropPlanes(n=3, width=6)` | Set `n` random planes (rows or columns in 2D) of thickness `width` along a random axis to `val` | <img src="imgs/examples/drop_planes.png" width="400"> |
+| `DropEdgePlanes(width=30)` | Set the planes of thickness `width` at a random edge to `val` | <img src="imgs/examples/drop_edge_planes.png" width="400"> |
+| **RGB (channels last, `uint8` or float in [0, 1])** | | |
+| `ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05)` | Random brightness, contrast, saturation and hue changes, as in torchvision's `ColorJitter` | <img src="imgs/examples/color_jitter.png" width="400"> |
+| `HEStaining()` | Random perturbation of the estimated H&E stain vectors and stain amounts (requires `augmend[he]`) | <img src="imgs/examples/he_staining.png" width="400"> |
+| `IntensityScaleShift(scale=(0.5, 1.5), shift=(-0.1, 0.1), axis=(0, 1), invert=True)` | Scale and shift `1 - x` per channel, so a bright background stays bright | <img src="imgs/examples/intensity_scale_shift_invert.png" width="400"> |
 
-
+Transforms can be combined: `t1 + t2` applies both in sequence, `t1 | t2` applies one of them chosen at random. `Identity()` leaves the input unchanged (e.g. for labels that should not get intensity changes), and `Lambda(func)` wraps a function `func(x, rng)`.

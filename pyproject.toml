@@ -31,7 +31,7 @@ version = { attr = "augmend.version.__version__" }
 include = ["augmend*"]
 
 [tool.setuptools.package-data]
-augmend = ["transforms/kernels/*.cl"]
+augmend = ["transforms/kernels/*.cl", "data/images/*.npz"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "UP"]

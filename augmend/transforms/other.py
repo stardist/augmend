@@ -93,7 +93,7 @@ def drop_edge_planes(x, rng, axis, width,  val):
 
 class GaussianBlur(BaseTransform):
     """
-    Cut parts of the image
+    Gaussian blur with a random sigma per axis drawn from amount
     """
     def __init__(self, amount= (1,4), mode=  "reflect", axis = None, use_gpu=False):
         super().__init__(

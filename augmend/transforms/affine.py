@@ -481,13 +481,13 @@ class FlipRot90(BaseTransform):
 
 class Flip(BaseTransform):
     """
-    flip and 90 degree rotation augmentation
+    random flip augmentation
     """
 
     def __init__(self, axis=None):
         """
         :param axis, tuple:
-            the axis along which to flip and rotate
+            the axis along which to flip
         """
         super().__init__(
             default_kwargs=dict(axis=axis),
