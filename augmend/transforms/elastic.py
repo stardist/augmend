@@ -19,15 +19,37 @@ def abspath(myPath):
         return os.path.join(base_path, myPath)
 
 
+def _linear_zoom_matrix(n_out, n_in):
+    """(n_out, n_in) matrix of linear interpolation weights, mapping corners to corners as ndimage.zoom."""
+    W = np.zeros((n_out, n_in))
+    if n_in == 1:
+        W[:, 0] = 1
+        return W
+    c = np.arange(n_out) * ((n_in - 1) / (n_out - 1)) if n_out > 1 else np.zeros(1)
+    i0 = np.minimum(np.floor(c).astype(int), n_in - 2)
+    w = c - i0
+    W[np.arange(n_out), i0] = 1 - w
+    W[np.arange(n_out), i0 + 1] = w
+    return W
+
+
+def _linear_zoom(x, shape):
+    """Same as ndimage.zoom(x, order=1) to the given shape, but separable (much faster for small x)."""
+    # contract the first axis and append the zoomed one, so the result is in the original order and C-contiguous
+    for n in shape:
+        x = np.tensordot(x, _linear_zoom_matrix(n, x.shape[0]), axes=(0, 1))
+    return x
+
+
 def _zoom_and_transform_cpu(img, dxs_coarse, order):
     """
-    img: is a ndarray of ndim dimension  
+    img: is a ndarray of ndim dimension
     dxs_coarse = (ndim, grid[0], grid[1],..., grid[ndim])
     """
-    zoom_factor = tuple(s / g for s, g in zip(img.shape, dxs_coarse[0].shape))
-    dxs = tuple(ndimage.zoom(dx, zoom_factor, order=1) for dx in dxs_coarse)
-    Xs = np.meshgrid(*tuple(np.arange(s) for s in img.shape), indexing='ij')
-    indices = tuple(np.reshape(X + dx, (-1, 1)) for X, dx in zip(Xs, dxs))
+    indices = tuple(
+        np.reshape(np.arange(s).reshape((-1,) + (1,) * (img.ndim - ax - 1)) + _linear_zoom(dx, img.shape), (-1, 1))
+        for ax, (s, dx) in enumerate(zip(img.shape, dxs_coarse))
+    )
     return ndimage.map_coordinates(img, indices, order=order).reshape(img.shape)
 
 
