@@ -41,9 +41,9 @@ def _raise(e):
         e = ValueError(e)
     raise e
 
-def pad_to_shape(d, dshape, mode = "constant"):
+def pad_to_shape(d, dshape, mode = "constant", cval = 0):
     """
-    pad array d to shape dshape
+    pad array d to shape dshape (with cval for mode = "constant")
     """
     if d.shape == dshape:
         return d
@@ -54,7 +54,8 @@ def pad_to_shape(d, dshape, mode = "constant"):
     res = d[slices]
     #then pad
     # return np.pad(res,[(n/2,n-n/2) if n>0 else (0,0) for n in diff],mode=mode)
-    return np.pad(res,[(int(np.ceil(d/2.)),d-int(np.ceil(d/2.))) if d>0 else (0,0) for d in diff],mode=mode)
+    kwargs = dict(constant_values=cval) if mode == "constant" else {}
+    return np.pad(res,[(int(np.ceil(d/2.)),d-int(np.ceil(d/2.))) if d>0 else (0,0) for d in diff],mode=mode,**kwargs)
 
 def _all_of_type(iterable, t):
     try:

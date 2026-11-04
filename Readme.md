@@ -212,6 +212,16 @@ img2, lbl2 = aug([img, lbl])  # img: float RGB in [0, 1] of shape (H, W, 3)
 
 ### Transforming arrays on the GPU
 
+`Scale`, `IsotropicScale`, `Rotate`, `Shift` and `Elastic` take `mode` and `cval`, so that image and labels can be filled differently, e.g. a reflected image with labels of -1 for pixels to ignore:
+
+```python
+from augmend import Augmend, Scale
+
+aug = Augmend()
+aug.add([Scale(axis=(0, 1), amount=(0.7, 1.3), order=1, mode="reflect"),
+         Scale(axis=(0, 1), amount=(0.7, 1.3), order=0, mode="constant", cval=-1)])
+```
+
 Some transforms (e.g. `Elastic` and `Scale`) allow to use the GPU for the transformation (which can be a bottleneck) via the keyword `use_gpu`. This requires additionally the installation of [`gputools`](https://github.com/maweigert/gputools), e.g. via `pip install "augmend[gpu]"`.
 
 

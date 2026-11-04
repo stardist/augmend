@@ -168,7 +168,7 @@ def random_rotation_matrix(ndim=2, rng=None):
     return q
 
 
-def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1, use_gpu=False, workers = 1):
+def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", order=1, use_gpu=False, workers = 1, cval=0):
     """
     random rotation around axis
     """
@@ -188,7 +188,7 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
             # rng.set_state(state)
             return transform_rotation(x, rng=rng,
                                       axis=None, offset = offset, order=order,
-                                      mode=mode,
+                                      mode=mode, cval=cval,
                                       workers = 1)
 
         # copy rng, to be thread-safe
@@ -210,18 +210,20 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
         offset -= np.dot(M, offset)
 
         if use_gpu:
+            if cval != 0:
+                raise ValueError('use_gpu=True does not support cval != 0')
             if not img.ndim==3 and mode=='constant':
                 raise ValueError('use_gpu=True only supported for img.ndim==3 and mode=="constant"')
             from gputools.transforms import affine
             inter = {0: "nearest",1:"linear"}
             res = affine(img, M, interpolation=inter[order])
         else:
-            res = ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode)
+            res = ndimage.affine_transform(img, M, offset=offset, order=order, mode=mode, cval=cval)
         return res
 
 
 
-def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False):
+def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False, cval=0):
     """
     scale tranformation
     :param img, ndarray:
@@ -234,6 +236,8 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
         the maximal scale amount (scale_min, scale_max) per axis.
     :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
+    :param cval, float:
+        the fill value for mode = "constant" (e.g. -1 for labels of ignored pixels)
     :return ndarray:
         the deformed img/array
 
@@ -277,7 +281,7 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
             # rng.set_state(state)
             return transform_scale(x, rng=rng,
                                    axis=None, amount=amount, order=order,
-                                   mode=mode,
+                                   mode=mode, cval=cval,
                                    use_gpu = use_gpu)
 
         # copy rng, to be thread-safe
@@ -302,16 +306,16 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
             inter = {
                 0: "nearest",
                 1:"linear"}
-            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode)
+            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode, cval=cval)
         else:
             # print("scaling by %s via scipy"%str(scale))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode), img.shape,mode=mode)
+                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode, cval=cval), img.shape,mode=mode,cval=cval)
         return res
 
 
-def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False):
+def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False, cval=0):
     """
     isotropic scale transformation
     :param img, ndarray:
@@ -324,6 +328,8 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
         the maximal scale amount (scale_min, scale_max) 
     :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
+    :param cval, float:
+        the fill value for mode = "constant" (e.g. -1 for labels of ignored pixels)
     :return ndarray:
         the deformed img/array
 
@@ -367,7 +373,7 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
             # rng.set_state(state)
             return transform_isotropic_scale(x, rng=rng,
                                    axis=None, amount=amount, order=order,
-                                   mode=mode,
+                                   mode=mode, cval=cval,
                                    use_gpu = use_gpu)
 
         # copy rng, to be thread-safe
@@ -393,16 +399,16 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
             inter = {
                 0: "nearest",
                 1:"linear"}
-            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode)
+            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode, cval=cval)
         else:
             # print("scaling by %s via scipy"%str(scale))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode), img.shape,mode=mode)
+                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode, cval=cval), img.shape,mode=mode,cval=cval)
         return res
     
     
-def transform_shift(img, rng=None, axis=None, amount=(-5,5), mode="constant", order=0, use_gpu=False, workers = 1):
+def transform_shift(img, rng=None, axis=None, amount=(-5,5), mode="constant", order=0, use_gpu=False, workers = 1, cval=0):
     """
     random rotation around axis
     """
@@ -432,7 +438,7 @@ def transform_shift(img, rng=None, axis=None, amount=(-5,5), mode="constant", or
             return transform_shift(x, rng=rng,
                                       axis=None, 
                                       amount=amount, order=order,
-                                      mode=mode,
+                                      mode=mode, cval=cval,
                                       workers = 1)
 
         # copy rng, to be thread-safe
@@ -454,13 +460,15 @@ def transform_shift(img, rng=None, axis=None, amount=(-5,5), mode="constant", or
 
         # as scipy.ndimage applies the offset *after* the affine matrix...
         if use_gpu:
+            if cval != 0:
+                raise ValueError('use_gpu=True does not support cval != 0')
             if not img.ndim==3 and mode=='constant':
                 raise ValueError('use_gpu=True only supported for img.ndim==3 and mode=="constant"')
             from gputools.transforms import affine
             inter = {0: "nearest",1:"linear"}
             res = affine(img,M, interpolation=inter[order])
         else:
-            res = ndimage.shift(img, shift, order=order, mode=mode)
+            res = ndimage.shift(img, shift, order=order, mode=mode, cval=cval)
         return res
 
 
@@ -500,7 +508,7 @@ class Rotate(BaseTransform):
     random rotations 
     """
 
-    def __init__(self, axis=None, order=1, mode = "reflect", workers = 1):
+    def __init__(self, axis=None, order=1, mode = "reflect", workers = 1, cval = 0):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -510,7 +518,8 @@ class Rotate(BaseTransform):
                 axis=axis,
                 order = order,
                 mode = mode,
-                workers=workers
+                workers=workers,
+                cval = cval
             ),
             transform_func=transform_rotation
         )
@@ -522,7 +531,7 @@ class Scale(BaseTransform):
     scale augmentation
     """
 
-    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False):
+    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False, cval = 0):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -533,7 +542,8 @@ class Scale(BaseTransform):
                 amount = amount,
                 order=order,
                 mode=mode,
-                use_gpu  = use_gpu
+                use_gpu  = use_gpu,
+                cval = cval
             ),
             transform_func=transform_scale
         )
@@ -545,7 +555,7 @@ class IsotropicScale(BaseTransform):
     scale augmentation
     """
 
-    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False):
+    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False, cval = 0):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -556,7 +566,8 @@ class IsotropicScale(BaseTransform):
                 amount = amount,
                 order=order,
                 mode=mode,
-                use_gpu  = use_gpu
+                use_gpu  = use_gpu,
+                cval = cval
             ),
             transform_func=transform_isotropic_scale
         )
@@ -568,7 +579,7 @@ class Shift(BaseTransform):
     shift augmentation
     """
 
-    def __init__(self, axis=None, amount=(-5,5), order=0, mode="constant", use_gpu =False):
+    def __init__(self, axis=None, amount=(-5,5), order=0, mode="constant", use_gpu =False, cval = 0):
         """
         :param axis, tuple:
             the axis along which to flip and rotate
@@ -579,7 +590,8 @@ class Shift(BaseTransform):
                 amount = amount,
                 order=order,
                 mode=mode,
-                use_gpu  = use_gpu
+                use_gpu  = use_gpu,
+                cval = cval
             ),
             transform_func=transform_shift
         )

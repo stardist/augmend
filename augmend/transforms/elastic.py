@@ -41,7 +41,7 @@ def _linear_zoom(x, shape):
     return x
 
 
-def _zoom_and_transform_cpu(img, dxs_coarse, order):
+def _zoom_and_transform_cpu(img, dxs_coarse, order, mode="constant", cval=0):
     """
     img: is a ndarray of ndim dimension
     dxs_coarse = (ndim, grid[0], grid[1],..., grid[ndim])
@@ -50,7 +50,7 @@ def _zoom_and_transform_cpu(img, dxs_coarse, order):
         np.reshape(np.arange(s).reshape((-1,) + (1,) * (img.ndim - ax - 1)) + _linear_zoom(dx, img.shape), (-1, 1))
         for ax, (s, dx) in enumerate(zip(img.shape, dxs_coarse))
     )
-    return ndimage.map_coordinates(img, indices, order=order).reshape(img.shape)
+    return ndimage.map_coordinates(img, indices, order=order, mode=mode, cval=cval).reshape(img.shape)
 
 
 def _zoom_and_transform_gpu(img, dxs_coarse, order):
@@ -94,7 +94,7 @@ def _zoom_and_transform_gpu(img, dxs_coarse, order):
     # return ndimage.map_coordinates(img, indices, order=order).reshape(img.shape)
     #
 
-def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, workers=1, use_gpu=False):
+def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, workers=1, use_gpu=False, mode="constant", cval=0):
     """
     elastic deformation of an n-dimensional image along the given axis
 
@@ -112,6 +112,11 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
         the interpolation order (e.g. set order = 0 for nearest neighbor)
     :param workers, int:
         if >1 uses multithreading with the given number of workers
+    :param mode, str:
+        how pixels outside the image are sampled, as in scipy.ndimage (only happens if amount
+        exceeds the grid spacing, as the displacements at the border point inwards)
+    :param cval, float:
+        the fill value for mode = "constant" (e.g. -1 for labels of ignored pixels)
 
     :return ndarray:
         the deformed img/array
@@ -162,7 +167,7 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
         def _func(x, rng):
             return transform_elastic(x, rng=rng,
                                      axis=None, grid=grid, amount=amount, order=order,
-                                     workers=1,
+                                     workers=1, mode=mode, cval=cval,
                                      use_gpu = use_gpu
                                      )
 
@@ -197,9 +202,11 @@ def transform_elastic(img, rng=None, axis=None, grid=5, amount=5, order=1, worke
             dxs_coarse[ax][tuple(ss)] *= -np.sign(dxs_coarse[ax][tuple(ss)])
 
         if use_gpu and img.ndim in (2,3):
+            if mode != "constant" or cval != 0:
+                raise ValueError('use_gpu=True only supports mode="constant" and cval=0')
             res = _zoom_and_transform_gpu(img, dxs_coarse=dxs_coarse, order=order)
         else:
-            res = _zoom_and_transform_cpu(img, dxs_coarse=dxs_coarse, order=order)
+            res = _zoom_and_transform_cpu(img, dxs_coarse=dxs_coarse, order=order, mode=mode, cval=cval)
 
         return res
 
@@ -237,7 +244,7 @@ class Elastic(BaseTransform):
 
     """
 
-    def __init__(self, axis=None, grid=5, amount=5, order=1, workers = 0, use_gpu = False):
+    def __init__(self, axis=None, grid=5, amount=5, order=1, workers = 0, use_gpu = False, mode = "constant", cval = 0):
         """
 
         :param axis, tuple:
@@ -248,6 +255,10 @@ class Elastic(BaseTransform):
             the maximal pixel shift of deformations per axis.
         :param order, int:
             the interpolation order (e.g. set order = 0 for nearest neighbor)
+        :param mode, str:
+            how pixels outside the image are sampled, as in scipy.ndimage
+        :param cval, float:
+            the fill value for mode = "constant" (e.g. -1 for labels of ignored pixels)
         """
 
         super().__init__(
@@ -257,6 +268,8 @@ class Elastic(BaseTransform):
                 amount=amount,
                 workers = workers,
                 use_gpu = use_gpu,
-                order=order),
+                order=order,
+                mode=mode,
+                cval=cval),
             transform_func=transform_elastic
         )

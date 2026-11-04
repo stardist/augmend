@@ -2,7 +2,17 @@
 
 mweigert@mpi-cbg.de
 """
-from augmend.utils import map_single_func_tree, map_trees, zip_trees, LeafTuple
+import numpy as np
+from augmend.utils import map_single_func_tree, map_trees, zip_trees, LeafTuple, pad_to_shape
+
+
+def test_pad_to_shape():
+    x = np.ones((4, 8), np.int32)
+    y = pad_to_shape(x, (6, 6), cval=-1)
+    assert y.shape == (6, 6) and y.dtype == x.dtype
+    assert (y[1:5] == 1).all() and (y[[0, 5]] == -1).all()
+    assert (pad_to_shape(x, (6, 6)) == np.where(y == -1, 0, y)).all()
+    assert (pad_to_shape(x, (6, 6), mode="reflect", cval=-1) == 1).all()
 
 
 def test_all():
