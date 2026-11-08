@@ -3,6 +3,8 @@
 mweigert@mpi-cbg.de
 """
 import numpy as np
+import pytest
+from scipy import ndimage
 from augmend import Augmend, Elastic, FlipRot90, Scale, Shift, Rotate, IntensityScaleShift, GaussianBlur, AdditiveNoise, CutOut, IsotropicScale, Identity, DropEdgePlanes, RandomCrop
 
 def test_coupling():
@@ -76,3 +78,19 @@ def test_cval():
     y = aug(np.stack([labels, labels], axis=-1), rng=np.random.RandomState(1))
     assert (y[..., 0] == -1).any()
     np.testing.assert_array_equal(y[..., 0], y[..., 1])
+
+
+@pytest.mark.parametrize("transform", (Scale, IsotropicScale))
+def test_scale_is_log_uniform(transform, monkeypatch):
+    zoom, scales = ndimage.zoom, []
+    monkeypatch.setattr(ndimage, "zoom", lambda x, scale, **k: (scales.append(scale), zoom(x, scale, **k))[1])
+    aug = transform(amount=(0.25, 4))
+    rng = np.random.RandomState(0)
+    for _ in range(2000):
+        aug(np.zeros((4, 4), np.float32), rng=rng)
+    s = np.array(scales)
+    assert s.min() >= 0.25 and s.max() <= 4
+    assert abs(np.median(np.log(s))) < 0.1  # a factor and its inverse are equally likely
+    assert abs(np.mean(s < 0.5) - 0.25) < 0.03 and abs(np.mean(s > 2) - 0.25) < 0.03
+    with pytest.raises(ValueError):
+        transform(amount=(0, 2))(np.zeros((4, 4), np.float32))

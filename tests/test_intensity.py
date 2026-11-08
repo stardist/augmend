@@ -23,6 +23,16 @@ def test_invert_equals_transform_of_inverse(seed):
     assert np.allclose(y, y_ref)
 
 
+def test_scale_is_log_uniform():
+    x = np.ones((4000, 1), np.float32)
+    s = IntensityScaleShift(scale=(0.25, 4), shift=(0, 0), axis=1)(x, rng=np.random.RandomState(0))[:, 0]
+    assert s.min() >= 0.25 and s.max() <= 4
+    assert abs(np.median(np.log(s))) < 0.1  # a factor and its inverse are equally likely
+    assert abs(np.mean(s < 0.5) - 0.25) < 0.03 and abs(np.mean(s > 2) - 0.25) < 0.03
+    with pytest.raises(ValueError):
+        IntensityScaleShift(scale=(0, 2))(x)
+
+
 def test_invert_rejects_integer_images():
     with pytest.raises(ValueError):
         IntensityScaleShift(invert=True)(np.zeros((8, 8), np.uint8))

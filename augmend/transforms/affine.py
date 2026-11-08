@@ -233,7 +233,8 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     :param axis, tuple or callable:
         the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
     :param amount, pair of float, or tuple of pairs  of same length as axis, or callable:
-        the maximal scale amount (scale_min, scale_max) per axis.
+        the scale range (scale_min, scale_max) per axis, 0 < scale_min <= scale_max,
+        sampled log-uniformly (a factor and its inverse are equally likely).
     :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
     :param cval, float:
@@ -270,6 +271,9 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     if not len(axis) == len(amount):
         raise ValueError(f"length of axis ({len(axis)}) != length of amount ({len(amount)})")
 
+    if not np.all((0 < amount[:, 0]) & (amount[:, 0] <= amount[:, 1])):
+        raise ValueError(f"amount must be ranges (low, high) with 0 < low <= high, got {amount.tolist()}")
+
     rng = _validate_rng(rng)
     
     if len(axis) < img.ndim:
@@ -296,7 +300,7 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
 
     else:
 
-        scale = tuple(rng.uniform(lower, upper) for lower, upper in amount)
+        scale = tuple(np.exp(rng.uniform(np.log(lower), np.log(upper))) for lower, upper in amount)
 
         if use_gpu:
             if not img.ndim==3:
@@ -325,7 +329,8 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
     :param axis, tuple or callable:
         the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
     :param amount, pair of float
-        the maximal scale amount (scale_min, scale_max) 
+        the scale range (scale_min, scale_max), 0 < scale_min <= scale_max,
+        sampled log-uniformly (a factor and its inverse are equally likely).
     :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
     :param cval, float:
@@ -362,6 +367,9 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
     if len(amount)!=2:
         raise ValueError("amount should be a tuple of length 2!")
 
+    if not 0 < amount[0] <= amount[1]:
+        raise ValueError(f"amount must be a range (low, high) with 0 < low <= high, got {amount.tolist()}")
+
     rng = _validate_rng(rng)
 
     if len(axis) < img.ndim:
@@ -388,7 +396,7 @@ def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, 
 
     else:
 
-        scale = rng.uniform(*amount)
+        scale = np.exp(rng.uniform(np.log(amount[0]), np.log(amount[1])))
         scale = (scale,)*len(axis)
 
         if use_gpu:

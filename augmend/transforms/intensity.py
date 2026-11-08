@@ -19,7 +19,10 @@ def intensity_scale_shift(x, rng, scale, shift, axis, invert=False):
     rng = _validate_rng(rng)
     axis = _flatten_axis(x.ndim, axis)
     size = tuple(1 if i in axis else s for i,s in enumerate(x.shape))
-    s = rng.uniform(*scale, size = size).astype(np.float32)
+    if not 0 < scale[0] <= scale[1]:
+        raise ValueError(f"scale must be a range (low, high) with 0 < low <= high, got {scale}")
+    # log-uniform: a factor and its inverse are equally likely (e.g. 0.5 and 2 for scale=(0.5, 2))
+    s = np.exp(rng.uniform(np.log(scale[0]), np.log(scale[1]), size = size)).astype(np.float32)
     t = rng.uniform(*shift, size = size).astype(np.float32)
     if invert:
         if not np.issubdtype(np.asarray(x).dtype, np.floating):
@@ -49,8 +52,10 @@ class IntensityScaleShift(BaseTransform):
 
     def __init__(self, scale=(.8,1.2), shift = (-.1,.1), axis=None, invert=False):
         """
-        all dimensions that are given by axis will be shifted simultaneously 
-        axis = None  -> all 
+        scale = (low, high) -> multiplicative factor, sampled log-uniformly (0 < low <= high)
+        shift = (low, high) -> additive offset, sampled uniformly
+        all dimensions that are given by axis will be shifted simultaneously
+        axis = None  -> all
         axis = (0,1) -> axis 2,3... will be shifted independently 
         invert = True -> scale and shift 1 - x instead of x, for float images in [0, 1]
                          with bright background (e.g. brightfield, H&E), which then stays bright
