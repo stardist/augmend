@@ -1,6 +1,5 @@
 import numpy as np
 from scipy import ndimage
-import warnings
 import itertools
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -223,9 +222,21 @@ def transform_rotation(img, rng=None, axis=None, offset=None, mode="constant", o
 
 
 
-def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False, cval=0):
+def _log_uniform(rng, low, high):
+    return float(np.exp(rng.uniform(np.log(low), np.log(high))))
+
+
+def _validate_range(r, name):
+    r = np.asarray(r, float)
+    if r.shape != (2,) or not 0 < r[0] <= r[1]:
+        raise ValueError(f"{name} must be a range (low, high) with 0 < low <= high, got {r.tolist()}")
+    return r
+
+
+def transform_scale(img, rng=None, axis=None, amount=(1, 2), order=1, mode="constant", use_gpu=False, cval=0,
+                    isotropic=None, isotropic_probability=1.0):
     """
-    scale tranformation
+    scale transformation, keeping the image shape (centered crop or padding)
     :param img, ndarray:
         the nD image to deform
     :param rng:
@@ -235,12 +246,20 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     :param amount, pair of float, or tuple of pairs  of same length as axis, or callable:
         the scale range (scale_min, scale_max) per axis, 0 < scale_min <= scale_max,
         sampled log-uniformly (a factor and its inverse are equally likely).
+    :param isotropic, pair of float or None:
+        range of one more log-uniform factor shared by all axis, which multiplies the per-axis factors
+    :param isotropic_probability, float:
+        probability of drawing the shared factor (else 1)
     :param order, int or callable:
         the interpolation order (e.g. set order = 0 for nearest neighbor)
+    :param mode, str:
+        how points outside the image are filled (scipy.ndimage modes)
     :param cval, float:
         the fill value for mode = "constant" (e.g. -1 for labels of ignored pixels)
     :return ndarray:
         the deformed img/array
+
+    All factors are applied in one interpolation that computes only the output pixels.
 
     Example:
     ========
@@ -250,7 +269,7 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     img[::16] = 128
     img[:,::16] = 128
 
-    out = transform_scale(img, axis = 1, amounts=(1,2))
+    out = transform_scale(img, axis = 1, amount=(1,2))
 
 
     """
@@ -259,11 +278,11 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     axis = _flatten_axis(img.ndim, axis)
 
     if np.isscalar(amount):
-        amount = ((amount,amount),) * len(axis)
+        amount = ((amount, amount),) * len(axis)
     elif np.isscalar(amount[0]):
         amount = (amount,) * len(axis)
 
-    amount = np.asanyarray(amount)
+    amount = np.asanyarray(amount, dtype=float)
 
     if not img.ndim >= len(axis):
         raise ValueError(f"dimension of image ({img.ndim}) < length of axis ({len(axis)})")
@@ -274,148 +293,53 @@ def transform_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "co
     if not np.all((0 < amount[:, 0]) & (amount[:, 0] <= amount[:, 1])):
         raise ValueError(f"amount must be ranges (low, high) with 0 < low <= high, got {amount.tolist()}")
 
+    if isotropic is not None:
+        isotropic = _validate_range(isotropic, "isotropic")
+
+    if not 0 <= isotropic_probability <= 1:
+        raise ValueError(f"isotropic_probability must be in [0, 1], got {isotropic_probability}")
+
     rng = _validate_rng(rng)
-    
-    if len(axis) < img.ndim:
-        # flatten all axis that are not affected
-        img_flattened = _to_flat_sub_array(img, axis)
-        # state = rng.get_state()
 
-        def _func(x, rng):
-            # rng.set_state(state)
-            return transform_scale(x, rng=rng,
-                                   axis=None, amount=amount, order=order,
-                                   mode=mode, cval=cval,
-                                   use_gpu = use_gpu)
+    factors = np.array([_log_uniform(rng, lower, upper) for lower, upper in amount])
+    if isotropic is not None:
+        # always drawn, so that coupled transforms (image and labels) step the rng alike
+        draw, shared = rng.uniform(), _log_uniform(rng, *isotropic)
+        if draw < isotropic_probability:
+            factors = factors * shared
 
-        # copy rng, to be thread-safe
-        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
+    scale = np.ones(img.ndim)
+    scale[np.array(axis)] = factors
 
-        res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
+    if np.all(scale == 1):
+        return img.copy()
 
-        # ensure that rng was stepped once
-        rng.uniform()
-        
-        return _from_flat_sub_array(res_flattened, axis, img.shape)
+    if use_gpu:
+        if not img.ndim == 3:
+            raise ValueError('use_gpu=True only supported for img.ndim==3')
+        from gputools import scale as zoom_gputools
+        inter = {0: "nearest", 1: "linear"}
+        return pad_to_shape(zoom_gputools(img, tuple(scale), interpolation=inter[order]), img.shape, mode=mode, cval=cval)
 
-    else:
-
-        scale = tuple(np.exp(rng.uniform(np.log(lower), np.log(upper))) for lower, upper in amount)
-
-        if use_gpu:
-            if not img.ndim==3:
-                raise ValueError('use_gpu=True only supported for img.ndim==3')
-            from gputools import scale as zoom_gputools            
-            # print("scaling by %s via gputools"%str(scale))
-            inter = {
-                0: "nearest",
-                1:"linear"}
-            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode, cval=cval)
-        else:
-            # print("scaling by %s via scipy"%str(scale))
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode, cval=cval), img.shape,mode=mode,cval=cval)
-        return res
+    # output pixel o samples the input at c + (o - c) / scale, c the image center
+    center = (np.array(img.shape) - 1) / 2
+    return ndimage.affine_transform(img, 1 / scale, offset=center - center / scale, output_shape=img.shape,
+                                    order=order, mode=mode, cval=cval)
 
 
-def transform_isotropic_scale(img, rng=None, axis=None,  amount=(1,2), order=1, mode = "constant", use_gpu=False, cval=0):
+def transform_isotropic_scale(img, rng=None, axis=None, amount=(1, 2), order=1, mode="constant", use_gpu=False, cval=0):
     """
-    isotropic scale transformation
-    :param img, ndarray:
-        the nD image to deform
-    :param rng:
-        the random number generator to be used
-    :param axis, tuple or callable:
-        the axis along which to deform e.g. axis = (1,2). Set axis = None if all axe should be used
-    :param amount, pair of float
-        the scale range (scale_min, scale_max), 0 < scale_min <= scale_max,
-        sampled log-uniformly (a factor and its inverse are equally likely).
-    :param order, int or callable:
-        the interpolation order (e.g. set order = 0 for nearest neighbor)
-    :param cval, float:
-        the fill value for mode = "constant" (e.g. -1 for labels of ignored pixels)
-    :return ndarray:
-        the deformed img/array
-
-    Example:
-    ========
-
-    img = np.zeros((128,) * 2, np.float32)
-
-    img[::16] = 128
-    img[:,::16] = 128
-
-    out = transform_scale(img, axis = 1, amounts=(1,2))
-
-
+    isotropic scale transformation: one log-uniform factor in amount = (scale_min, scale_max) for all axis,
+    see transform_scale
     """
-    
-
-    img = np.asanyarray(img)
-
-    axis = _flatten_axis(img.ndim, axis)
-
     if np.isscalar(amount):
-        amount = (amount,amount) 
-
-    amount = np.asanyarray(amount)
-
-    if not img.ndim >= len(axis):
-        raise ValueError(f"dimension of image ({img.ndim}) < length of axis ({len(axis)})")
-
-    if len(amount)!=2:
+        amount = (amount, amount)
+    if len(amount) != 2:
         raise ValueError("amount should be a tuple of length 2!")
+    return transform_scale(img, rng=rng, axis=axis, amount=1, order=order, mode=mode, use_gpu=use_gpu, cval=cval,
+                           isotropic=_validate_range(amount, "amount"))
 
-    if not 0 < amount[0] <= amount[1]:
-        raise ValueError(f"amount must be a range (low, high) with 0 < low <= high, got {amount.tolist()}")
 
-    rng = _validate_rng(rng)
-
-    if len(axis) < img.ndim:
-        # flatten all axis that are not affected
-        img_flattened = _to_flat_sub_array(img, axis)
-        # state = rng.get_state()
-
-        def _func(x, rng):
-            # rng.set_state(state)
-            return transform_isotropic_scale(x, rng=rng,
-                                   axis=None, amount=amount, order=order,
-                                   mode=mode, cval=cval,
-                                   use_gpu = use_gpu)
-
-        # copy rng, to be thread-safe
-        rng_flattened = tuple(deepcopy(rng) for _ in img_flattened)
-
-        res_flattened = np.stack(tuple(map(_func, img_flattened, rng_flattened)))
-
-        # ensure that rng was stepped once
-        rng.uniform()
-        
-        return _from_flat_sub_array(res_flattened, axis, img.shape)
-
-    else:
-
-        scale = np.exp(rng.uniform(np.log(amount[0]), np.log(amount[1])))
-        scale = (scale,)*len(axis)
-
-        if use_gpu:
-            if not img.ndim==3:
-                raise ValueError('use_gpu=True only supported for img.ndim==3')
-            from gputools import scale as zoom_gputools            
-            # print("scaling by %s via gputools"%str(scale))
-            inter = {
-                0: "nearest",
-                1:"linear"}
-            res = pad_to_shape(zoom_gputools(img, scale, interpolation= inter[order]), img.shape, mode=mode, cval=cval)
-        else:
-            # print("scaling by %s via scipy"%str(scale))
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                res = pad_to_shape(ndimage.zoom(img, scale, order=order, mode = mode, cval=cval), img.shape,mode=mode,cval=cval)
-        return res
-    
-    
 def transform_shift(img, rng=None, axis=None, amount=(-5,5), mode="constant", order=0, use_gpu=False, workers = 1, cval=0):
     """
     random rotation around axis
@@ -539,10 +463,15 @@ class Scale(BaseTransform):
     scale augmentation
     """
 
-    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False, cval = 0):
+    def __init__(self, axis=None, amount=(.5,2), order=1, mode="constant", use_gpu =False, cval = 0,
+                 isotropic=None, isotropic_probability=1.0):
         """
         :param axis, tuple:
-            the axis along which to flip and rotate
+            the axis to scale
+        :param amount, pair or tuple of pairs:
+            log-uniform range of the factor per axis
+        :param isotropic, pair or None:
+            log-uniform range of one more factor shared by all axis (with isotropic_probability, else 1)
         """
         super().__init__(
             default_kwargs=dict(
@@ -551,7 +480,9 @@ class Scale(BaseTransform):
                 order=order,
                 mode=mode,
                 use_gpu  = use_gpu,
-                cval = cval
+                cval = cval,
+                isotropic=isotropic,
+                isotropic_probability=isotropic_probability,
             ),
             transform_func=transform_scale
         )

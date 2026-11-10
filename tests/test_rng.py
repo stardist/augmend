@@ -5,13 +5,14 @@ import pytest
 
 import augmend as A
 
-# checksums of outputs produced by augmend 0.1.3 with the same seeds (see _checksum)
+# checksums of outputs produced by augmend 0.1.3 with the same seeds (see _checksum); Scale and IsotropicScale (one
+# affine interpolation and the draws of transform_scale) from 0.2.0
 REFERENCE = {
     "FlipRot90": (2619.8278, 3550.5581),
     "Flip": (2619.8278, 3550.5581),
     "Rotate": (2478.8058, 3898.7692),
-    "Scale": (1937.637, 3225.7757),  # log-uniform scale
-    "IsotropicScale": (1941.1201, 3225.7751),  # log-uniform scale
+    "Scale": (1997.7349, 3330.7765),  # log-uniform scale
+    "IsotropicScale": (1779.053, 2984.5487),  # log-uniform scale
     "Shift": (1617.1118, 2750.0489),
     "Elastic": (2757.2672, 4521.8608),
     "CutOut": (2607.571, 4319.3833),
@@ -23,9 +24,9 @@ REFERENCE = {
     "RandomCrop": (458.2208, 746.7831),
 }
 REFERENCE_PIPELINE = [
-    ((2474.4697, 4006.9951), (2478.1858, 4013.4378)),  # log-uniform Scale
+    ((2542.6039, 4120.2919), (2545.7995, 4125.829)),  # log-uniform Scale
     ((2511.9749, 3645.2794), (2512.6429, 3645.5309)),
-    ((2248.6901, 3707.0303), (2248.2328, 3706.0649)),  # log-uniform Scale
+    ((2374.3567, 3915.1511), (2375.5208, 3917.0396)),  # log-uniform Scale
 ]
 
 

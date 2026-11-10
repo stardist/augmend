@@ -237,7 +237,7 @@ Each example shows the input followed by three random outputs, created with [`sc
 | `FlipRot90()` | Random flip and axis permutation (90 degree rotation) of the axes in `axis` | <img src="imgs/examples/fliprot90.png" width="400"> |
 | `Flip()` | Random flip of the axes in `axis` | <img src="imgs/examples/flip.png" width="400"> |
 | `Rotate()` | Rotation by a random angle (random rotation matrix in nD) | <img src="imgs/examples/rotate.png" width="400"> |
-| `Scale(amount=(0.5, 2))` | Zoom by a random factor per axis, keeping the image shape | <img src="imgs/examples/scale.png" width="400"> |
+| `Scale(amount=(0.5, 2))` | Zoom by a random factor per axis, keeping the image shape; `isotropic=(low, high)` adds one factor shared by all axes (drawn with `isotropic_probability`), in the same interpolation | <img src="imgs/examples/scale.png" width="400"> |
 | `IsotropicScale(amount=(0.5, 2))` | Zoom by the same random factor for all axes | <img src="imgs/examples/isotropic_scale.png" width="400"> |
 | `Shift(amount=(-30, 30))` | Shift by a random number of pixels per axis | <img src="imgs/examples/shift.png" width="400"> |
 | `Elastic(grid=5, amount=8)` | Random displacements (at most `amount` pixels) on a coarse grid of `grid` points per axis, interpolated to all pixels | <img src="imgs/examples/elastic.png" width="400"> |
